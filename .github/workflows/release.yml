@@ -1,0 +1,130 @@
+name: release
+
+# Releases are cut by hand, always from a release candidate that already exists.
+#
+# It does not rebuild. It takes the exact package the build job produced for that rc, so the DLLs
+# a player downloads are byte-for-byte the ones a tester ran -- only the version stamped on the
+# package changes. Recompiling "the same commit" would quietly hand out binaries nobody tested.
+#
+#   Actions -> release -> Run workflow -> rc_tag: v0.1.2-rc.3
+#   => tag v0.1.2 on that commit + a GitHub release carrying CyberpunkVRPort-0.1.2.zip
+on:
+  workflow_dispatch:
+    inputs:
+      rc_tag:
+        description: 'Release candidate to promote, e.g. v0.1.2-rc.3'
+        required: true
+        type: string
+      version:
+        description: 'Release version. Defaults to the rc with -rc.N dropped.'
+        required: false
+        type: string
+      draft:
+        description: 'Create the release as a draft'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark the release as a pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the candidate
+        id: rc
+        env:
+          RC_TAG: ${{ inputs.rc_tag }}
+          OVERRIDE: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! $RC_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::rc_tag must look like v0.1.2-rc.3, got '$RC_TAG'"
+            exit 1
+          fi
+          if ! sha=$(git rev-parse -q --verify "refs/tags/$RC_TAG^{commit}"); then
+            echo "::error::tag $RC_TAG does not exist -- only builds of main are tagged as rc"
+            exit 1
+          fi
+
+          rc_version=${RC_TAG#v}
+          if [[ -n $OVERRIDE ]]; then
+            version=${OVERRIDE#v}
+            if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must be a bare X.Y.Z, got '$OVERRIDE'"
+              exit 1
+            fi
+          else
+            version=${rc_version%-rc.*}
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "::error::v$version is already tagged -- bump VERSION on main before releasing again"
+            exit 1
+          fi
+
+          {
+            echo "sha=$sha"
+            echo "rc_version=$rc_version"
+            echo "version=$version"
+            echo "rc_artifact=CyberpunkVRPort-$rc_version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fetch the package that rc built
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.rc.outputs.sha }}
+          ARTIFACT: ${{ steps.rc.outputs.rc_artifact }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list --workflow build.yml --commit "$SHA" --status success \
+                     --limit 20 --json databaseId --jq '.[0].databaseId')
+          if [[ -z ${run_id:-} ]]; then
+            echo "::error::no successful build run for $SHA -- the rc never produced a package"
+            exit 1
+          fi
+          echo "promoting artifact from build run $run_id"
+          gh run download "$run_id" --name "$ARTIFACT" --dir staging
+
+      - name: Restamp the package as ${{ steps.rc.outputs.version }}
+        env:
+          RC_VERSION: ${{ steps.rc.outputs.rc_version }}
+          VERSION: ${{ steps.rc.outputs.version }}
+        run: |
+          set -euo pipefail
+          unzip -q "staging/CyberpunkVRPort-$RC_VERSION.zip" -d pkg
+          # The only thing in the package that names a version. Nothing that is loaded by the
+          # game is touched, which is the whole point of promoting rather than rebuilding.
+          sed -i "1s|^CyberpunkVRPort $RC_VERSION$|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
+          head -1 pkg/INSTALL.txt
+          (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.rc.outputs.sha }}
+          RC_TAG: ${{ inputs.rc_tag }}
+          VERSION: ${{ steps.rc.outputs.version }}
+          DRAFT: ${{ inputs.draft }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              tag -a "v$VERSION" -m "CyberpunkVRPort $VERSION (promoted from $RC_TAG)" "$SHA"
+          git push origin "refs/tags/v$VERSION"
+
+          args=(--title "CyberpunkVRPort $VERSION" --generate-notes
+                --notes "Promoted from \`$RC_TAG\` — the binaries in this package are the ones that rc built, unchanged.")
+          if [[ $DRAFT == true ]]; then args+=(--draft); fi
+          if [[ $PRERELEASE == true ]]; then args+=(--prerelease); fi
+          gh release create "v$VERSION" "${args[@]}" "CyberpunkVRPort-$VERSION.zip"

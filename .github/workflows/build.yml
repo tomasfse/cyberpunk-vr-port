@@ -1,0 +1,118 @@
+name: build
+
+# The mod is built here and nowhere else. Every push gets a versioned, installable package as a
+# run artifact, so "what did the tester actually run" always has an answer.
+#
+#   feature branch / PR   0.1.2-dev.<short-sha>   artifact only
+#   main                  0.1.2-rc.N              artifact + a v0.1.2-rc.N tag on the commit
+#   release               0.1.2                   cut by hand from an rc, see release.yml
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      channel: ${{ steps.v.outputs.channel }}
+      tag: ${{ steps.v.outputs.tag }}
+      artifact: ${{ steps.v.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # rc numbering counts commits since the VERSION bump; a shallow clone cannot.
+          fetch-depth: 0
+
+      - id: v
+        env:
+          # On a pull_request the checkout is the merge commit and GITHUB_REF_NAME is "N/merge".
+          # Version the branch that is being proposed, not the ephemeral merge.
+          VERSION_REF_NAME: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          VERSION_REF_TYPE: ${{ github.ref_type }}
+          VERSION_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: scripts/ci_version.sh | tee -a "$GITHUB_OUTPUT"
+
+      - run: echo "### ${{ steps.v.outputs.version }} (${{ steps.v.outputs.channel }})" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # OpenXR-SDK and imgui come down through FetchContent on every configure otherwise.
+      - uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: deps-${{ runner.os }}-
+
+      # CyberpunkVR_Stereo.dll -- the VR plugin itself.
+      - name: Configure stereo plugin
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Build stereo plugin
+        run: cmake --build build --config Release --parallel
+
+      # CyberpunkVR_Hands.dll -- a separate RED4ext plugin with its own project. build_dist.ps1
+      # looks for it under src\red4ext_plugin\build\RelWithDebInfo\, so build it exactly there.
+      - name: Configure hands plugin
+        run: cmake -S src/red4ext_plugin -B src/red4ext_plugin/build -G "Visual Studio 17 2022" -A x64
+      - name: Build hands plugin
+        run: cmake --build src/red4ext_plugin/build --config RelWithDebInfo --parallel
+
+      - name: Package
+        run: pwsh scripts/build_dist.ps1 -Version "${{ needs.version.outputs.version }}" -Zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.version.outputs.artifact }}
+          path: dist/CyberpunkVRPort-${{ needs.version.outputs.version }}.zip
+          if-no-files-found: error
+          retention-days: 90
+
+      # Not shipped, never in the package -- but a crash dump from this build is unreadable
+      # without it, and the build tree is gone the moment the runner is recycled.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.version.outputs.artifact }}-symbols
+          path: |
+            build/bin/red4ext/plugins/CyberpunkVR_Stereo/Release/*.pdb
+            src/red4ext_plugin/build/RelWithDebInfo/*.pdb
+          if-no-files-found: warn
+          retention-days: 90
+
+  # Every build of main is a release candidate and gets a tag, so release.yml has something
+  # concrete to promote and an rc is always traceable to one commit.
+  tag-rc:
+    needs: [version, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag ${{ needs.version.outputs.tag }}
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists, leaving it alone"
+            exit 0
+          fi
+          git -c user.name=github-actions[bot] \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              tag -a "$TAG" -m "Release candidate $TAG"
+          git push origin "refs/tags/$TAG"

@@ -98,6 +98,14 @@ cmake --build build --config Release --target cyberpunkvrport_stereo
 pwsh scripts\deploy_stereo.ps1 -GameRoot "<game root>"
 ```
 
+## Builds and releases
+
+Packages are produced by GitHub Actions, not by hand. Every push gets an
+installable zip as a run artifact, versioned from `VERSION` at the repo root:
+`0.1.2-dev.<short-sha>` on a feature branch, `0.1.2-rc.N` on `main` (tagged as
+it is built), and a plain `0.1.2` release cut manually by promoting one of those
+rc builds — the same binaries, not a rebuild. See [docs/BUILD-CI.md](docs/BUILD-CI.md).
+
 ## Controls
 
 VR controller input is merged into the native CP2077 gamepad, so the in-game

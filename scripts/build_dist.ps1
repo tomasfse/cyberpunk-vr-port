@@ -9,7 +9,7 @@
 #   pwsh scripts\build_dist.ps1 -Version 0.1.1 -Zip
 
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "",
     [string]$BuildDir = "build",
     [switch]$Zip,
     [switch]$Force
@@ -17,6 +17,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+
+# CI always passes -Version (see scripts/ci_version.sh). A local run falls back to the VERSION
+# file rather than to a literal that goes stale the first time anyone bumps it.
+if (-not $Version) {
+    $Version = (Get-Content (Join-Path $RepoRoot "VERSION") -Raw).Trim()
+}
 $Out      = Join-Path $RepoRoot "dist\CyberpunkVRPort-$Version"
 
 # Folders that exist for development and have no business in a tester's game.
