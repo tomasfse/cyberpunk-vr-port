@@ -104,7 +104,15 @@ jobs:
           unzip -q "staging/CyberpunkVRPort-$RC_VERSION.zip" -d pkg
           # The only thing in the package that names a version. Nothing that is loaded by the
           # game is touched, which is the whole point of promoting rather than rebuilding.
-          sed -i "1s|^CyberpunkVRPort $RC_VERSION$|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
+          #
+          # Not anchored to end-of-line: build_dist.ps1 writes this file from Windows, so every
+          # line ends CRLF and `...$VERSION$` would never match -- silently shipping a release
+          # that still calls itself an rc.
+          sed -i "1s|CyberpunkVRPort $RC_VERSION|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
+          if ! head -1 pkg/INSTALL.txt | grep -qF "CyberpunkVRPort $VERSION"; then
+            echo "::error::INSTALL.txt still reads '$(head -1 pkg/INSTALL.txt)' -- refusing to publish a mislabelled package"
+            exit 1
+          fi
           head -1 pkg/INSTALL.txt
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
