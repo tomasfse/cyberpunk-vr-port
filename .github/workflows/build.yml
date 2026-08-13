@@ -60,16 +60,30 @@ jobs:
           key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: deps-${{ runner.os }}-
 
+      # Which MSVC produced a DLL is the first question a crash report raises, and the runner
+      # image changes under us -- windows-latest carried VS2022 until it didn't.
+      - name: Toolchain
+        run: |
+          cmake --version
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+              -latest -products * -property displayName
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+              -latest -products * -property catalog_productDisplayVersion
+
       # CyberpunkVR_Stereo.dll -- the VR plugin itself.
+      #
+      # The generator is NOT pinned. Naming one ties the build to a Visual Studio version that the
+      # runner image drops without warning; CMake's own default is the newest VS actually
+      # installed, which is the thing we want and cannot go stale.
       - name: Configure stereo plugin
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S . -B build -A x64
       - name: Build stereo plugin
         run: cmake --build build --config Release --parallel
 
       # CyberpunkVR_Hands.dll -- a separate RED4ext plugin with its own project. build_dist.ps1
       # looks for it under src\red4ext_plugin\build\RelWithDebInfo\, so build it exactly there.
       - name: Configure hands plugin
-        run: cmake -S src/red4ext_plugin -B src/red4ext_plugin/build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S src/red4ext_plugin -B src/red4ext_plugin/build -A x64
       - name: Build hands plugin
         run: cmake --build src/red4ext_plugin/build --config RelWithDebInfo --parallel
 
