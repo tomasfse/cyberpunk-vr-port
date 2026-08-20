@@ -35,6 +35,7 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,8 +87,12 @@ jobs:
           ARTIFACT: ${{ steps.rc.outputs.rc_artifact }}
         run: |
           set -euo pipefail
+          # `// empty` is load-bearing. Over an empty result jq evaluates .[0] to null, field
+          # access on null is null again, and -r prints the four characters "null" -- a non-empty
+          # string that sails straight past the guard below and reaches `gh run download null`.
+          # The clear error this step exists to produce would never have been printed.
           run_id=$(gh run list --workflow build.yml --commit "$SHA" --status success \
-                     --limit 20 --json databaseId --jq '.[0].databaseId')
+                     --limit 20 --json databaseId --jq '.[0].databaseId // empty')
           if [[ -z ${run_id:-} ]]; then
             echo "::error::no successful build run for $SHA -- the rc never produced a package"
             exit 1

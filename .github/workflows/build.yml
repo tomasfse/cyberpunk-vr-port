@@ -15,7 +15,12 @@ on:
 
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # NOT on main. Every build of main is a release candidate and gets a tag, and release.yml can
+  # only promote a tag that exists. Cancelling the in-flight build of an earlier commit skips its
+  # tag-rc job -- but ci_version.sh numbers rc's by counting commits, so the number is not handed
+  # back. Two pushes in quick succession would leave a permanent hole in the rc sequence and an
+  # rc that can never be released.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -23,6 +28,7 @@ permissions:
 jobs:
   version:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
       channel: ${{ steps.v.outputs.channel }}
@@ -48,10 +54,22 @@ jobs:
   build:
     needs: version
     runs-on: windows-latest
+    # A hung MSBuild otherwise burns the 6-hour default, and Windows minutes bill at 2x.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          # BUILD THE COMMIT THE VERSION NAMES. The version job stamps the package with the head
+          # of the branch being proposed (see VERSION_SHA above); checking out the default ref
+          # here would build the ephemeral merge commit instead, so a -dev package would carry one
+          # sha in its filename and a different one in the INSTALL.txt line build_dist.ps1 writes
+          # from `git rev-parse HEAD`. "What did the tester actually run" needs those to agree.
+          #
+          # The trade: a PR build no longer proves the MERGE compiles, only the branch. That is
+          # covered anyway -- push builds every branch including main, so a merge that breaks the
+          # build is caught by main's own run seconds later.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       # OpenXR-SDK and imgui come down through FetchContent on every configure otherwise.
       - uses: actions/cache@v4
@@ -114,6 +132,7 @@ jobs:
     needs: [version, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:

@@ -78,5 +78,9 @@ mods/cet/**/vrik_recenter.ini
 # Claude Rewind Tool
 .claude-rewind/
 
+# Claude Code: per-machine permission grants, not shared config. CLAUDE.md and .claude/skills/
+# ARE tracked -- they are how the build and deploy procedures reach the next person.
+.claude/settings.local.json
+
 # Stereo-plugin build output
 /build-stereo/
