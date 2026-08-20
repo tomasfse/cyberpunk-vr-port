@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:wiki.redmodding.org)",
+      "Bash(pwsh -NoProfile -Command ' *)",
+      "Bash(sed -n '/^REQUIRED/,/^INSTALL$/p' scripts/build_dist.ps1)",
+      "Bash(grep -n '@\"$\\\\|^\"@' scripts/build_dist.ps1)",
+      "Bash(sed -n '/^REQUIRED/,/^OPTIONAL/p' scripts/build_dist.ps1)",
+      "Bash(grep -n '[$`]')"
+    ]
+  }
+}
