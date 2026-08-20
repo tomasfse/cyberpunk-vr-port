@@ -8,9 +8,10 @@ description: Version, tag and publish a CyberpunkVRPort release through GitHub A
 ## The rule the whole design rests on
 
 **A release never rebuilds.** `release.yml` downloads the zip that the rc's build run already
-produced, rewrites the single version string in `INSTALL.txt`, and publishes those exact binaries.
-Recompiling "the same commit" would quietly hand players binaries nobody tested — different
-compiler, different runner image, different result. Any change to `release.yml` must preserve this.
+produced, rewrites the version where the package names it (`INSTALL.txt` and `fomod/info.xml`),
+and publishes those exact binaries. Recompiling "the same commit" would quietly hand players
+binaries nobody tested — different compiler, different runner image, different result. Any change
+to `release.yml` must preserve this.
 
 ## Where versions come from
 

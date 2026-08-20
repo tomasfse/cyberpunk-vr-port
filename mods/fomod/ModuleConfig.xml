@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vortex/MO2 installer definition. Its ONLY job here is the dependency gate: without RED4ext,
+  CET, redscript, ArchiveXL, TweakXL and Codeware the mod installs cleanly, loads nothing, and
+  the player reports "the VR mod does not work" with a log that says almost nothing.
+
+  What this cannot do, and what no file inside the archive can do: download anything. A FOMOD
+  checks the game folder and refuses; it has no channel to Nexus. Auto-download of requirements
+  is a Collection, which lives on Nexus and not in this zip.
+
+  The paths below are what each dependency drops in the game root. They are checked against the
+  DEPLOYED game folder, so a dependency that is installed in Vortex but not deployed reads as
+  missing.
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
+
+  <moduleName>CyberpunkVRPort</moduleName>
+
+  <!--
+    Mandatory only. Equipment-EX and Visual Holsters are deliberately absent: each one turns a
+    single feature on, and gating the whole install on them would force a player who does not
+    want the smoking props to install the outfit-slot framework anyway.
+
+    Codeware's version is NOT checked, and that is the gap that matters most. A FOMOD tests for
+    presence, never for a DLL's version, so a Codeware older than 1.20 passes this gate and then
+    kills redscript compilation for EVERY mod in the game — absent is safe, stale is
+    catastrophic. INSTALL.txt carries that warning in words because the installer cannot enforce
+    it.
+
+    The game build (2.31) is not gated either. Vortex's detected version string for CP2077 has
+    carried build suffixes that break an exact match, and a false positive here would make the
+    mod uninstallable for everyone rather than merely unsupported on the wrong patch.
+  -->
+  <moduleDependencies operator="And">
+    <!-- RED4ext — https://www.nexusmods.com/cyberpunk2077/mods/2380 -->
+    <fileDependency file="red4ext/RED4ext.dll" state="Active"/>
+    <!-- Cyber Engine Tweaks — https://www.nexusmods.com/cyberpunk2077/mods/107 -->
+    <fileDependency file="bin/x64/plugins/cyber_engine_tweaks.asi" state="Active"/>
+    <!-- redscript — https://www.nexusmods.com/cyberpunk2077/mods/1511
+         scc.exe rather than the loader config: redscript moved from engine\config\base\scripts.ini
+         to r6\config\cybercmd\, and the compiler itself sat still through both. -->
+    <fileDependency file="engine/tools/scc.exe" state="Active"/>
+    <!-- ArchiveXL — https://www.nexusmods.com/cyberpunk2077/mods/4198 -->
+    <fileDependency file="red4ext/plugins/ArchiveXL/ArchiveXL.dll" state="Active"/>
+    <!-- TweakXL — https://www.nexusmods.com/cyberpunk2077/mods/4197 -->
+    <fileDependency file="red4ext/plugins/TweakXL/TweakXL.dll" state="Active"/>
+    <!-- Codeware 1.20+ — https://www.nexusmods.com/cyberpunk2077/mods/7780 -->
+    <fileDependency file="red4ext/plugins/Codeware/Codeware.dll" state="Active"/>
+  </moduleDependencies>
+
+  <!--
+    Everything, unconditionally. The package is already laid out as it must land in the game root,
+    so source and destination are the same tree and there is nothing to choose. INSTALL.txt is
+    deliberately not installed: it is a note for whoever opens the archive, not a file that
+    belongs in a player's game folder.
+  -->
+  <requiredInstallFiles>
+    <folder source="red4ext"  destination="red4ext"  priority="0"/>
+    <folder source="bin"      destination="bin"      priority="0"/>
+    <folder source="r6"       destination="r6"       priority="0"/>
+    <folder source="archive"  destination="archive"  priority="0"/>
+    <folder source="engine"   destination="engine"   priority="0"/>
+  </requiredInstallFiles>
+
+</config>

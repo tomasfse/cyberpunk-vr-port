@@ -114,8 +114,9 @@ that computes a version** — never invent one in a workflow step.
 | manual dispatch | `0.1.2` | `release.yml` **promotes** an existing rc |
 
 The release **does not rebuild**. It downloads the zip that rc's build run produced, rewrites the
-one version string in `INSTALL.txt`, and publishes those exact binaries — so a player runs what a
-tester ran. Preserving that property matters more than any convenience in `release.yml`.
+version where the package names it (`INSTALL.txt`, `fomod/info.xml`), and publishes those exact
+binaries — so a player runs what a tester ran. Preserving that property matters more than any
+convenience in `release.yml`.
 
 Note the tag-prefix split: the 11 historical tags are bare (`0.1.1`), the CI creates `v`-prefixed
 ones, and the duplicate-guard in `release.yml` only checks the `v` form.

@@ -112,6 +112,16 @@ foreach ($a in @("cyberpunkvrport.archive","VRCigarette.archive.xl")) {
     else { Write-Host "[!] $a is not in the repo -- run sync_assets.ps1 first" }
 }
 
+# ---- the Vortex / MO2 installer ----------------------------------------------------------------
+# Only a gate. A FOMOD can refuse to install and name what is missing; it cannot fetch anything,
+# so this does not replace the requirement list on the Nexus page. Manual installers never see it:
+# extracting the zip by hand ignores fomod\ entirely and the layout below still lands correctly.
+Add-File (Need (Join-Path $RepoRoot "mods\fomod\ModuleConfig.xml") "ModuleConfig.xml") "fomod\ModuleConfig.xml"
+$fomodInfo = (Get-Content (Need (Join-Path $RepoRoot "mods\fomod\info.xml") "info.xml") -Raw).Replace("@VERSION@", $Version)
+$fomodDst  = Join-Path $Out "fomod\info.xml"
+Set-Content $fomodDst $fomodInfo -Encoding utf8 -NoNewline
+$manifest += [pscustomobject]@{ Path = "fomod\info.xml"; Bytes = (Get-Item -LiteralPath $fomodDst).Length }
+
 # ---- the OpenXR probe is NOT packaged ---------------------------------------------------------
 # It stays in tools\xr_probe\ and goes to a tester by hand, when there is something to measure.
 # Registering a MACHINE-WIDE OpenXR API layer is not a thing to ship to everyone who installs a
@@ -180,6 +190,11 @@ OPTIONAL
 INSTALL
     Extract the contents of this folder into your Cyberpunk 2077 game root -- the folder that
     contains bin\, r6\, red4ext\ and archive\. The paths inside already match.
+
+    With Vortex or MO2, install this zip as-is: it carries a FOMOD installer that checks the six
+    required mods above are present and refuses to install if one is not. It does NOT download
+    them -- nothing inside a mod archive can -- so install them first. Note the check cannot see
+    Codeware's VERSION, only that it is there.
 
     Then start your OpenXR runtime, then the game. A small launcher window appears first: pick
     your headset and per-eye render resolution there.

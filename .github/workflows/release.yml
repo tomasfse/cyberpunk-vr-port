@@ -119,6 +119,15 @@ jobs:
             exit 1
           fi
           head -1 pkg/INSTALL.txt
+
+          # The FOMOD carries the version too, and it is the one a Vortex user actually sees on
+          # the mod's row. Miss it and a promoted release introduces itself as the rc it came from.
+          sed -i "s|<Version>$RC_VERSION</Version>|<Version>$VERSION</Version>|" pkg/fomod/info.xml
+          if ! grep -qF "<Version>$VERSION</Version>" pkg/fomod/info.xml; then
+            echo "::error::fomod/info.xml still reads '$(grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml)' -- refusing to publish a mislabelled package"
+            exit 1
+          fi
+          grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
       - name: Tag and release

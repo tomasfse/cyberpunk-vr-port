@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What Vortex shows on the mod's row. @VERSION@ is substituted by scripts\build_dist.ps1 with the
+  version CI stamped on the package — and rewritten again by release.yml when an rc is promoted,
+  so a released package never introduces itself to Vortex as the rc it was built from.
+-->
+<fomod>
+  <Name>CyberpunkVRPort</Name>
+  <Version>@VERSION@</Version>
+  <Website>https://github.com/tomasfse/cyberpunk-vr-port</Website>
+  <Description>
+    6-DoF VR for Cyberpunk 2077: stereo rendering through OpenXR, head tracking, motion
+    controllers merged into the game's own gamepad input, VRIK arms, and gameplay mods for HUD
+    placement, holsters, melee, weapon handling and smoking.
+
+    Requires RED4ext, Cyber Engine Tweaks, redscript, ArchiveXL, TweakXL and Codeware 1.20 or
+    newer; the installer refuses to run without them. An OpenXR runtime must be started before
+    the game -- it ships with your headset software and is not a mod.
+
+    A Codeware OLDER than 1.20 is worse than none: the installer cannot detect it, and it breaks
+    redscript compilation for every mod in the game.
+  </Description>
+</fomod>
