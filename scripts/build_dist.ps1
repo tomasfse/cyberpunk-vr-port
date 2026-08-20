@@ -143,13 +143,39 @@ BEFORE YOU INSTALL -- READ THIS ONE
     To skip it entirely: after the first launch creates bin\x64\vrport.ini, set first_launch=1 in
     it BEFORE starting the game a second time. To ask for it again later, set first_launch=0.
 
-REQUIREMENTS
-    Cyberpunk 2077 2.31 (this build's engine offsets are matched to it)
-    RED4ext, Cyber Engine Tweaks, redscript, TweakXL, ArchiveXL, Codeware
-    An OpenXR runtime, started BEFORE the game
+REQUIRED
+    Cyberpunk 2077 2.31 -- this build's engine offsets are matched to it.
+    An OpenXR runtime, started BEFORE the game. This comes with your headset software (VDXR,
+        Meta, SteamVR, WMR); it is not a mod and not on Nexus.
+
+    RED4ext              https://www.nexusmods.com/cyberpunk2077/mods/2380
+    Cyber Engine Tweaks  https://www.nexusmods.com/cyberpunk2077/mods/107
+    redscript            https://www.nexusmods.com/cyberpunk2077/mods/1511
+    ArchiveXL            https://www.nexusmods.com/cyberpunk2077/mods/4198
+    TweakXL              https://www.nexusmods.com/cyberpunk2077/mods/4197
+    Codeware 1.20+       https://www.nexusmods.com/cyberpunk2077/mods/7780
+        An OLDER Codeware is worse than none: it compiles against an API that no longer matches
+        and takes down redscript compilation for EVERY mod in the game, not just this one.
+
+    Install RED4ext, CET and redscript first.
 
     Nothing else may proxy dxgi. If bin\x64\dxgi.dll exists (R.E.A.L. VR installs one), move it
     out of the folder -- two VR paths in one process fight over the same engine hooks.
+
+OPTIONAL
+    Each one turns a feature on. Without it that feature is off and nothing else changes.
+
+    Equipment-EX         https://www.nexusmods.com/cyberpunk2077/mods/6945
+        The outfit slots the VR smoking props attach to. Without it the cigarette and lighter
+        have nowhere to render.
+    Visual Holsters      https://www.nexusmods.com/cyberpunk2077/mods/21936
+        Only for IMMERSIVE hand-to-holster mode, which equips by visual holster. The SIMPLE
+        mode (fixed weapon slots) works without it.
+
+    Recommended, but referenced by nothing here -- what the port was tuned and played against:
+
+    Visible Bullets      https://www.nexusmods.com/cyberpunk2077/mods/22251
+    Nova Optics          https://www.nexusmods.com/cyberpunk2077/mods/29190
 
 INSTALL
     Extract the contents of this folder into your Cyberpunk 2077 game root -- the folder that
