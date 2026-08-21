@@ -106,7 +106,19 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          unzip -q "staging/CyberpunkVRPort-$RC_VERSION.zip" -d pkg
+          # gh run download EXTRACTS the artifact, and the artifact is now the package tree
+          # itself, so there is nothing to unzip. An rc built before that change still carries
+          # the old zip-inside-a-zip; handle both so an older candidate stays promotable.
+          if [[ -f "staging/CyberpunkVRPort-$RC_VERSION.zip" ]]; then
+            unzip -q "staging/CyberpunkVRPort-$RC_VERSION.zip" -d pkg
+          else
+            mv staging pkg
+          fi
+          if [[ ! -f pkg/INSTALL.txt || ! -f pkg/fomod/info.xml ]]; then
+            echo "::error::this artifact is not a package -- no INSTALL.txt or fomod/info.xml at its root"
+            ls -la pkg
+            exit 1
+          fi
           # The only thing in the package that names a version. Nothing that is loaded by the
           # game is touched, which is the whole point of promoting rather than rebuilding.
           #

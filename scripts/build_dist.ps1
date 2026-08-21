@@ -113,8 +113,9 @@ foreach ($a in @("cyberpunkvrport.archive","VRCigarette.archive.xl")) {
 }
 
 # ---- the Vortex / MO2 installer ----------------------------------------------------------------
-# Only a gate. A FOMOD can refuse to install and name what is missing; it cannot fetch anything,
-# so this does not replace the requirement list on the Nexus page. Manual installers never see it:
+# Installs; does not check dependencies -- Vortex resolves a FOMOD fileDependency out of its
+# plugin/load-order list, which Cyberpunk does not have, so a gate refuses everyone. That job
+# belongs to the Requirements list on the Nexus page. Manual installers never see this folder:
 # extracting the zip by hand ignores fomod\ entirely and the layout below still lands correctly.
 Add-File (Need (Join-Path $RepoRoot "mods\fomod\ModuleConfig.xml") "ModuleConfig.xml") "fomod\ModuleConfig.xml"
 $fomodInfo = (Get-Content (Need (Join-Path $RepoRoot "mods\fomod\info.xml") "info.xml") -Raw).Replace("@VERSION@", $Version)
@@ -164,41 +165,38 @@ REQUIRED
     ArchiveXL            https://www.nexusmods.com/cyberpunk2077/mods/4198
     TweakXL              https://www.nexusmods.com/cyberpunk2077/mods/4197
     Codeware 1.20+       https://www.nexusmods.com/cyberpunk2077/mods/7780
-        An OLDER Codeware is worse than none: it compiles against an API that no longer matches
-        and takes down redscript compilation for EVERY mod in the game, not just this one.
 
     Install RED4ext, CET and redscript first.
 
     Nothing else may proxy dxgi. If bin\x64\dxgi.dll exists (R.E.A.L. VR installs one), move it
-    out of the folder -- two VR paths in one process fight over the same engine hooks.
+    out of the folder.
 
 OPTIONAL
-    Each one turns a feature on. Without it that feature is off and nothing else changes.
-
     Equipment-EX         https://www.nexusmods.com/cyberpunk2077/mods/6945
-        The outfit slots the VR smoking props attach to. Without it the cigarette and lighter
-        have nowhere to render.
+        VR smoking props.
     Visual Holsters      https://www.nexusmods.com/cyberpunk2077/mods/21936
-        Only for IMMERSIVE hand-to-holster mode, which equips by visual holster. The SIMPLE
-        mode (fixed weapon slots) works without it.
+        Immersive holster mode. The simple mode works without it.
 
-    Recommended, but referenced by nothing here -- what the port was tuned and played against:
-
+    Recommended:
     Visible Bullets      https://www.nexusmods.com/cyberpunk2077/mods/22251
     Nova Optics          https://www.nexusmods.com/cyberpunk2077/mods/29190
+
+PREPARE THE GAME
+    1. Install the required mods above and START THE GAME ONCE.
+
+    2. Turn off overlays: OpenXR Toolkit, RivaTuner, the NVIDIA and Steam overlays, Discord.
+
+    3. Graphics settings: everything on Low; Film Grain, Chromatic Aberration, Motion Blur,
+       Lens Flare, Depth of Field and Frame Generation OFF; display mode borderless window.
+
+    4. Coming from an earlier build of this mod? Delete bin\x64\dxgi.dll.
 
 INSTALL
     Extract the contents of this folder into your Cyberpunk 2077 game root -- the folder that
     contains bin\, r6\, red4ext\ and archive\. The paths inside already match.
 
-    With Vortex or MO2, install this zip as-is: it carries a FOMOD installer that checks the six
-    required mods above are present and refuses to install if one is not. It does NOT download
-    them -- nothing inside a mod archive can -- so install them first. Note the check cannot see
-    Codeware's VERSION, only that it is there.
-
-    If it refuses while you DO have all six, hit Deploy in Vortex and install again. The check
-    reads the GAME folder, so a requirement sitting in Vortex's staging folder -- installed but
-    not yet deployed -- reads as missing.
+    With Vortex or MO2, install this zip as-is. Install the required mods first; the installer
+    does not check them for you.
 
     Then start your OpenXR runtime, then the game. A small launcher window appears first: pick
     your headset and per-eye render resolution there.

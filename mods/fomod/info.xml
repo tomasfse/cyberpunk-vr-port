@@ -14,14 +14,7 @@
     placement, holsters, melee, weapon handling and smoking.
 
     Requires RED4ext, Cyber Engine Tweaks, redscript, ArchiveXL, TweakXL and Codeware 1.20 or
-    newer; the installer refuses to run without them. An OpenXR runtime must be started before
-    the game -- it ships with your headset software and is not a mod.
-
-    If it refuses while you DO have all six, deploy and try again. The check reads the game
-    folder, so a requirement that is installed in Vortex but still staged, not yet deployed,
-    reads as missing.
-
-    A Codeware OLDER than 1.20 is worse than none: the installer cannot detect it, and it breaks
-    redscript compilation for every mod in the game.
+    newer. An OpenXR runtime must be started before the game; it ships with your headset
+    software.
   </Description>
 </fomod>

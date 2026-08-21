@@ -105,13 +105,18 @@ jobs:
       - name: Build hands plugin
         run: cmake --build src/red4ext_plugin/build --config RelWithDebInfo --parallel
 
+      # No -Zip. actions/upload-artifact ALWAYS zips what it is handed, so uploading our own
+      # zip produced a zip inside a zip: Vortex opened the outer one, found a single .zip with
+      # no fomod\ and no game folders at its root, and had nothing to install.
       - name: Package
-        run: pwsh scripts/build_dist.ps1 -Version "${{ needs.version.outputs.version }}" -Zip
+        run: pwsh scripts/build_dist.ps1 -Version "${{ needs.version.outputs.version }}"
 
+      # Upload the package TREE. GitHub's own wrapper then IS the package, so what a tester
+      # downloads installs directly in Vortex and still extracts correctly by hand.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}
-          path: dist/CyberpunkVRPort-${{ needs.version.outputs.version }}.zip
+          path: dist/CyberpunkVRPort-${{ needs.version.outputs.version }}/
           if-no-files-found: error
           retention-days: 90
 

@@ -53,39 +53,30 @@ actually built.
 
 ## Installation dependencies
 
-What a **player** needs. All of them are on Nexus except the OpenXR runtime,
-which comes with your headset software.
+All on Nexus except the OpenXR runtime, which comes with your headset software.
 
 **Required**
 
-- Cyberpunk 2077 (PC, **2.31**) — this build's engine offsets are matched to it.
+- Cyberpunk 2077 (PC, **2.31**)
 - [RED4ext](https://www.nexusmods.com/cyberpunk2077/mods/2380)
 - [Cyber Engine Tweaks](https://www.nexusmods.com/cyberpunk2077/mods/107)
 - [redscript](https://www.nexusmods.com/cyberpunk2077/mods/1511)
 - [ArchiveXL](https://www.nexusmods.com/cyberpunk2077/mods/4198)
 - [TweakXL](https://www.nexusmods.com/cyberpunk2077/mods/4197)
-- [Codeware](https://www.nexusmods.com/cyberpunk2077/mods/7780) — **1.20 or newer**. Note the failure mode: if Codeware is *absent*
-  the HUD blocks that use it are skipped and everything still compiles, but an
-  *older* Codeware compiles against an API that no longer matches and takes down
-  redscript compilation for **every** mod in the game, not just this one.
-- An OpenXR runtime, started **before** the game.
+- [Codeware](https://www.nexusmods.com/cyberpunk2077/mods/7780) — 1.20 or newer
+- An OpenXR runtime, started **before** the game
 
-Install RED4ext, CET and redscript first (the usual Nexus dependencies).
+Install RED4ext, CET and redscript first.
 
-**Optional** — each one enables a feature; without it that feature is off and
-nothing else changes.
+**Optional**
 
-- [Equipment-EX](https://www.nexusmods.com/cyberpunk2077/mods/6945) — provides
-  the outfit slots the VR smoking props attach to. Without it the cigarette and
-  lighter have nowhere to render.
-- [Visual Holsters (Automatic Clothes Swap)](https://www.nexusmods.com/cyberpunk2077/mods/21936)
-  — required only for *immersive* hand-to-holster mode, which equips by visual
-  holster. The *simple* mode (fixed weapon slots) works without it.
+- [Equipment-EX](https://www.nexusmods.com/cyberpunk2077/mods/6945) — VR smoking props
+- [Visual Holsters](https://www.nexusmods.com/cyberpunk2077/mods/21936) — immersive
+  holster mode; simple mode works without it
 
-**Recommended, not required** — no code here references these; they are what the
-port was tuned and played against.
+**Recommended**
 
-- [Visible Bullets (Projectile Restoration)](https://www.nexusmods.com/cyberpunk2077/mods/22251)
+- [Visible Bullets](https://www.nexusmods.com/cyberpunk2077/mods/22251)
 - [Nova Optics](https://www.nexusmods.com/cyberpunk2077/mods/29190)
 
 ## Development dependencies
@@ -109,7 +100,24 @@ The sight shaders ship as pre-built `.dxil` blobs committed to the repo; there i
 no shader compilation step in the build. The other passes (depth resolve, colour
 blit, sharpen) compile their HLSL at runtime through `d3dcompiler`.
 
-## Installation (drop-in)
+## Installation
+
+### Before you install
+
+1. Install the required mods and **start the game once**.
+2. Turn off overlays — OpenXR Toolkit, RivaTuner, the NVIDIA and Steam overlays,
+   Discord.
+3. Graphics settings: everything **Low**; Film Grain, Chromatic Aberration,
+   Motion Blur, Lens Flare, Depth of Field and Frame Generation **off**; display
+   mode **borderless window**.
+4. Coming from an earlier build of this mod? Delete `bin\x64\dxgi.dll`.
+
+### With Vortex or MO2
+
+Install the release zip as-is. It does not check the required mods for you —
+install those first.
+
+### By hand
 
 Download the release archive and extract its contents into your **Cyberpunk 2077
 game root** (the folder that contains `bin\`, `r6\`, `red4ext\`). The files land
