@@ -7,7 +7,7 @@
 <fomod>
   <Name>CyberpunkVRPort</Name>
   <Version>@VERSION@</Version>
-  <Website>https://github.com/tomasfse/cyberpunk-vr-port</Website>
+  <Website>https://github.com/dariulone/cyberpunk-vr-port</Website>
   <Description>
     6-DoF VR for Cyberpunk 2077: stereo rendering through OpenXR, head tracking, motion
     controllers merged into the game's own gamepad input, VRIK arms, and gameplay mods for HUD
@@ -16,6 +16,10 @@
     Requires RED4ext, Cyber Engine Tweaks, redscript, ArchiveXL, TweakXL and Codeware 1.20 or
     newer; the installer refuses to run without them. An OpenXR runtime must be started before
     the game -- it ships with your headset software and is not a mod.
+
+    If it refuses while you DO have all six, deploy and try again. The check reads the game
+    folder, so a requirement that is installed in Vortex but still staged, not yet deployed,
+    reads as missing.
 
     A Codeware OLDER than 1.20 is worse than none: the installer cannot detect it, and it breaks
     redscript compilation for every mod in the game.

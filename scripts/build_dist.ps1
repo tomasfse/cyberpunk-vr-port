@@ -196,6 +196,10 @@ INSTALL
     them -- nothing inside a mod archive can -- so install them first. Note the check cannot see
     Codeware's VERSION, only that it is there.
 
+    If it refuses while you DO have all six, hit Deploy in Vortex and install again. The check
+    reads the GAME folder, so a requirement sitting in Vortex's staging folder -- installed but
+    not yet deployed -- reads as missing.
+
     Then start your OpenXR runtime, then the game. A small launcher window appears first: pick
     your headset and per-eye render resolution there.
 

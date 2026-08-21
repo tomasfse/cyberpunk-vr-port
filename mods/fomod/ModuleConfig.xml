@@ -10,7 +10,9 @@
 
   The paths below are what each dependency drops in the game root. They are checked against the
   DEPLOYED game folder, so a dependency that is installed in Vortex but not deployed reads as
-  missing.
+  missing. That is permanent: Vortex#11421 asked for an override and was closed "not planned" in
+  September 2025. It bites the ordinary Vortex workflow (install several mods, deploy once at the
+  end), so info.xml and INSTALL.txt both tell the player to deploy and retry.
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
