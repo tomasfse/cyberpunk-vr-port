@@ -14,8 +14,8 @@ on:
   workflow_dispatch:
     inputs:
       rc_tag:
-        description: 'Release candidate to promote, e.g. 0.1.2-rc.3.a1b2c3d'
-        required: true
+        description: 'Release candidate to promote, e.g. 0.1.2-rc.3.a1b2c3d. Blank = the newest rc.'
+        required: false
         type: string
       version:
         description: 'Release version. Defaults to the rc with -rc.N dropped.'
@@ -50,6 +50,18 @@ jobs:
           OVERRIDE: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          # Blank means the newest rc, which is what you want in all but the rare case of
+          # promoting an older candidate. Sorted by creation date rather than by version: rc tags
+          # are annotated and created in order, and version sort has opinions about where a
+          # prerelease suffix ranks that are not worth depending on here.
+          if [[ -z ${RC_TAG:-} ]]; then
+            RC_TAG=$(git tag --list --sort=-creatordate | grep -E -- '-rc\.' | head -1)
+            if [[ -z $RC_TAG ]]; then
+              echo "::error::no rc tag exists yet -- push to main to build one"
+              exit 1
+            fi
+            echo "no rc_tag given, promoting the newest: $RC_TAG"
+          fi
           # Tags are bare. A typed-in `v` is stripped rather than rejected -- it resolves to the
           # same release either way, and being strict about it would only fail a human's habit.
           RC_TAG=${RC_TAG#v}
@@ -161,6 +173,12 @@ jobs:
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
+          # The previous RELEASE, computed BEFORE this one is tagged. --generate-notes on its own
+          # measures from the previous TAG, and every build of main leaves an rc -- so the notes
+          # for 0.1.2 would cover the handful of commits since 0.1.2-rc.11 rather than the whole
+          # cycle since 0.1.1. Bare tags make the filter trivial: a release has no -rc. in it.
+          prev=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+
           git -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               tag -a "$VERSION" -m "CyberpunkVRPort $VERSION (promoted from $RC_TAG)" "$SHA"
@@ -168,6 +186,11 @@ jobs:
 
           args=(--title "CyberpunkVRPort $VERSION" --generate-notes
                 --notes "Promoted from \`$RC_TAG\` — the binaries in this package are the ones that rc built, unchanged.")
+          # Absent on the very first release, and gh then falls back to the previous tag on its own.
+          if [[ -n $prev ]]; then
+            echo "release notes measured from $prev"
+            args+=(--notes-start-tag "$prev")
+          fi
           if [[ $DRAFT == true ]]; then args+=(--draft); fi
           if [[ $PRERELEASE == true ]]; then args+=(--prerelease); fi
           gh release create "$VERSION" "${args[@]}" "CyberpunkVRPort-$VERSION.zip"
