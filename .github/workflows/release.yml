@@ -1,41 +1,35 @@
 name: release
 
-# Releases are cut by hand, always from a release candidate that already exists.
+# The author writes the release. This only attaches the binary.
 #
-# It does not rebuild. It takes the exact package the build job produced for that rc, so the DLLs
-# a player downloads are byte-for-byte the ones a tester ran -- only the version stamped on the
-# package changes. Recompiling "the same commit" would quietly hand out binaries nobody tested.
+#   GitHub -> Releases -> Draft a new release -> tag 0.1.3, write the notes, Publish
+#   => this workflow finds the release candidate built from that same commit, restamps the
+#      version the package names, and attaches CyberpunkVRPort-0.1.3.zip
 #
-#   Actions -> release -> Run workflow -> rc_tag: 0.1.2-rc.3.a1b2c3d
-#   => tag 0.1.2 on that commit + a GitHub release carrying CyberpunkVRPort-0.1.2.zip
+# IT DOES NOT REBUILD. The zip a player downloads is the one the rc's build produced, so what
+# ships is what a tester ran. Recompiling "the same commit" would quietly hand out binaries
+# nobody has tested, and preserving that matters more than any convenience here.
 #
-# Tags are bare, with no `v` prefix, matching the tags the author already published.
+# WHY IT MATCHES BY COMMIT and not "the newest rc": the release tag already names a commit, so
+# there is nothing to type and nothing to get wrong. The newest rc is not necessarily the one
+# that was tested, and it is the wrong answer outright when a release is cut from an earlier
+# commit. Every commit on main gets an rc, so whichever commit the author picks has one waiting.
+#
+# Drafts do not trigger workflows -- GitHub fires `release` only on publish -- so there is a
+# minute or two between the release going public and its asset appearing. That is the cost of
+# letting the author work entirely in the Releases UI, and it is worth it.
 on:
-  workflow_dispatch:
-    inputs:
-      rc_tag:
-        description: 'Release candidate to promote, e.g. 0.1.2-rc.3.a1b2c3d. Blank = the newest rc.'
-        required: false
-        type: string
-      version:
-        description: 'Release version. Defaults to the rc with -rc.N dropped.'
-        required: false
-        type: string
-      draft:
-        description: 'Create the release as a draft'
-        type: boolean
-        default: false
-      prerelease:
-        description: 'Mark the release as a pre-release'
-        type: boolean
-        default: false
+  release:
+    types: [published]
 
 permissions:
   contents: write
-  actions: read
 
 jobs:
-  promote:
+  attach:
+    # Prereleases are the rc's themselves, published by build.yml. Attaching to those would be a
+    # loop: an rc already carries its own package.
+    if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -43,154 +37,89 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve the candidate
+      - name: Find the release candidate for this commit
         id: rc
         env:
-          RC_TAG: ${{ inputs.rc_tag }}
-          OVERRIDE: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          # Blank means the newest rc, which is what you want in all but the rare case of
-          # promoting an older candidate. Sorted by creation date rather than by version: rc tags
-          # are annotated and created in order, and version sort has opinions about where a
-          # prerelease suffix ranks that are not worth depending on here.
-          if [[ -z ${RC_TAG:-} ]]; then
-            RC_TAG=$(git tag --list --sort=-creatordate | grep -E -- '-rc\.' | head -1)
-            if [[ -z $RC_TAG ]]; then
-              echo "::error::no rc tag exists yet -- push to main to build one"
-              exit 1
-            fi
-            echo "no rc_tag given, promoting the newest: $RC_TAG"
-          fi
-          # Tags are bare. A typed-in `v` is stripped rather than rejected -- it resolves to the
-          # same release either way, and being strict about it would only fail a human's habit.
-          RC_TAG=${RC_TAG#v}
-          # rc tags carry the commit: 0.1.2-rc.3.a1b2c3d. The sha is part of the tag name, not
-          # decoration, so it is required here -- a bare 0.1.2-rc.3 names no tag that exists.
-          if [[ ! $RC_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+\.[0-9A-Za-z]+$ ]]; then
-            echo "::error::rc_tag must look like 0.1.2-rc.3.a1b2c3d, got '$RC_TAG'"
-            exit 1
-          fi
-          if ! sha=$(git rev-parse -q --verify "refs/tags/$RC_TAG^{commit}"); then
-            echo "::error::tag $RC_TAG does not exist -- only builds of main are tagged as rc"
+          version=${TAG#v}
+          if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tag must be a bare X.Y.Z, got '$TAG'"
             exit 1
           fi
 
-          rc_version=$RC_TAG
-          if [[ -n $OVERRIDE ]]; then
-            version=${OVERRIDE#v}
-            if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::version must be a bare X.Y.Z, got '$OVERRIDE'"
-              exit 1
-            fi
-          else
-            version=${rc_version%-rc.*}
-          fi
+          sha=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}")
 
-          # Bare, so this also sees the releases the author tagged by hand before CI existed.
-          if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
-            echo "::error::$version is already tagged -- bump VERSION on main before releasing again"
+          # The rc tag on the SAME commit. --points-at is exact: no sorting, no guessing which
+          # candidate was meant. More than one can only happen if main was force-pushed and a
+          # commit collected two rc numbers; take the newest and say so rather than pick silently.
+          mapfile -t rcs < <(git tag --points-at "$sha" --sort=-creatordate | grep -E -- '-rc\.' || true)
+          if [[ ${#rcs[@]} -eq 0 ]]; then
+            echo "::error::no release candidate was built from $sha -- only commits on main get one, and the package has to come from a build that already happened"
             exit 1
           fi
+          if [[ ${#rcs[@]} -gt 1 ]]; then
+            echo "::warning::$sha carries ${#rcs[@]} rc tags (${rcs[*]}); using the newest"
+          fi
+          rc=${rcs[0]}
 
+          echo "releasing $version from $rc ($sha)"
           {
-            echo "sha=$sha"
-            echo "rc_tag=$RC_TAG"
-            echo "rc_version=$rc_version"
             echo "version=$version"
-            echo "rc_artifact=CyberpunkVRPort-$rc_version"
+            echo "rc=$rc"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Fetch the package that rc built
+      - name: Restamp ${{ steps.rc.outputs.rc }} as ${{ steps.rc.outputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ steps.rc.outputs.sha }}
-          ARTIFACT: ${{ steps.rc.outputs.rc_artifact }}
-        run: |
-          set -euo pipefail
-          # `// empty` is load-bearing. Over an empty result jq evaluates .[0] to null, field
-          # access on null is null again, and -r prints the four characters "null" -- a non-empty
-          # string that sails straight past the guard below and reaches `gh run download null`.
-          # The clear error this step exists to produce would never have been printed.
-          run_id=$(gh run list --workflow build.yml --commit "$SHA" --status success \
-                     --limit 20 --json databaseId --jq '.[0].databaseId // empty')
-          if [[ -z ${run_id:-} ]]; then
-            echo "::error::no successful build run for $SHA -- the rc never produced a package"
-            exit 1
-          fi
-          echo "promoting artifact from build run $run_id"
-          gh run download "$run_id" --name "$ARTIFACT" --dir staging
-
-      - name: Restamp the package as ${{ steps.rc.outputs.version }}
-        env:
-          RC_VERSION: ${{ steps.rc.outputs.rc_version }}
+          RC: ${{ steps.rc.outputs.rc }}
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # gh run download EXTRACTS the artifact, and the artifact is now the package tree
-          # itself, so there is nothing to unzip. An rc built before that change still carries
-          # the old zip-inside-a-zip; handle both so an older candidate stays promotable.
-          if [[ -f "staging/CyberpunkVRPort-$RC_VERSION.zip" ]]; then
-            unzip -q "staging/CyberpunkVRPort-$RC_VERSION.zip" -d pkg
-          else
-            mv staging pkg
-          fi
+          # From the rc's own prerelease asset, not from the build run's artifact: a run artifact
+          # is deleted after 90 days, a release asset is not. Promoting a candidate older than
+          # that used to fail with nothing left to download.
+          gh release download "$RC" --pattern '*.zip' --dir staging
+          zip=$(ls staging/*.zip)
+          unzip -q "$zip" -d pkg
+
           if [[ ! -f pkg/INSTALL.txt || ! -f pkg/fomod/info.xml ]]; then
-            echo "::error::this artifact is not a package -- no INSTALL.txt or fomod/info.xml at its root"
+            echo "::error::$RC's asset is not a package -- no INSTALL.txt or fomod/info.xml at its root"
             ls -la pkg
             exit 1
           fi
-          # The only thing in the package that names a version. Nothing that is loaded by the
-          # game is touched, which is the whole point of promoting rather than rebuilding.
+
+          # The two files in the package that name a version. Nothing the game loads is touched,
+          # which is the whole point of promoting rather than rebuilding.
           #
-          # Not anchored to end-of-line: build_dist.ps1 writes this file from Windows, so every
+          # Not anchored to end-of-line: build_dist.ps1 writes INSTALL.txt from Windows, so every
           # line ends CRLF and `...$VERSION$` would never match -- silently shipping a release
           # that still calls itself an rc.
-          sed -i "1s|CyberpunkVRPort $RC_VERSION|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
+          sed -i "1s|CyberpunkVRPort $RC|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
           if ! head -1 pkg/INSTALL.txt | grep -qF "CyberpunkVRPort $VERSION"; then
             echo "::error::INSTALL.txt still reads '$(head -1 pkg/INSTALL.txt)' -- refusing to publish a mislabelled package"
             exit 1
           fi
           head -1 pkg/INSTALL.txt
 
-          # The FOMOD carries the version too, and it is the one a Vortex user actually sees on
-          # the mod's row. Miss it and a promoted release introduces itself as the rc it came from.
-          sed -i "s|<Version>$RC_VERSION</Version>|<Version>$VERSION</Version>|" pkg/fomod/info.xml
+          # This one is what a Vortex user sees on the mod's row.
+          sed -i "s|<Version>$RC</Version>|<Version>$VERSION</Version>|" pkg/fomod/info.xml
           if ! grep -qF "<Version>$VERSION</Version>" pkg/fomod/info.xml; then
             echo "::error::fomod/info.xml still reads '$(grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml)' -- refusing to publish a mislabelled package"
             exit 1
           fi
           grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml
+
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
-      - name: Tag and release
+      - name: Attach it
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ steps.rc.outputs.sha }}
-          RC_TAG: ${{ steps.rc.outputs.rc_tag }}
+          TAG: ${{ github.event.release.tag_name }}
           VERSION: ${{ steps.rc.outputs.version }}
-          DRAFT: ${{ inputs.draft }}
-          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
-          # The previous RELEASE, computed BEFORE this one is tagged. --generate-notes on its own
-          # measures from the previous TAG, and every build of main leaves an rc -- so the notes
-          # for 0.1.2 would cover the handful of commits since 0.1.2-rc.11 rather than the whole
-          # cycle since 0.1.1. Bare tags make the filter trivial: a release has no -rc. in it.
-          prev=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
-
-          git -c user.name='github-actions[bot]' \
-              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              tag -a "$VERSION" -m "CyberpunkVRPort $VERSION (promoted from $RC_TAG)" "$SHA"
-          git push origin "refs/tags/$VERSION"
-
-          args=(--title "CyberpunkVRPort $VERSION" --generate-notes
-                --notes "Promoted from \`$RC_TAG\` — the binaries in this package are the ones that rc built, unchanged.")
-          # Absent on the very first release, and gh then falls back to the previous tag on its own.
-          if [[ -n $prev ]]; then
-            echo "release notes measured from $prev"
-            args+=(--notes-start-tag "$prev")
-          fi
-          if [[ $DRAFT == true ]]; then args+=(--draft); fi
-          if [[ $PRERELEASE == true ]]; then args+=(--prerelease); fi
-          gh release create "$VERSION" "${args[@]}" "CyberpunkVRPort-$VERSION.zip"
+          # --clobber so re-running over a partial attempt replaces the asset instead of failing.
+          gh release upload "$TAG" "CyberpunkVRPort-$VERSION.zip" --clobber

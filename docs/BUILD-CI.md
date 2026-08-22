@@ -52,20 +52,29 @@ candidate by design — but the releases page grows accordingly.
 
 ## Cutting a release
 
-Releases are manual and always promote a release candidate that already exists:
+You write the release; CI attaches the binary.
 
-> Actions → **release** → Run workflow → `rc_tag: 0.1.2-rc.3.a1b2c3d`
+> GitHub → **Releases** → Draft a new release → tag `0.1.3`, write the notes, **Publish**
 
-It does not rebuild. It downloads the package that rc's build run produced, restamps the version
-line in `INSTALL.txt`, tags the commit `0.1.2` and publishes the release with
-`CyberpunkVRPort-0.1.2.zip` attached. The DLLs a player downloads are byte-for-byte the ones the
-testers ran — recompiling "the same commit" would hand out binaries nobody has tested.
+Publishing fires `release.yml`, which finds the release candidate built from **that same commit**,
+restamps the version the package names, and attaches `CyberpunkVRPort-0.1.3.zip`. Nothing is
+rebuilt: the zip is the one that rc's build produced, so what ships is what a tester ran.
 
-Inputs: `version` overrides the derived number (`0.1.2-rc.3.a1b2c3d` → `0.1.2`), and `draft` /
-`prerelease` are there when a release wants a second look before it is public.
+It matches by commit rather than by "the newest rc" because the release tag already names one —
+there is nothing to type and nothing to get wrong, and the newest rc is the wrong answer outright
+when a release is cut from an earlier commit. Every commit on `main` gets an rc, so whichever
+commit you pick has one waiting.
 
-It refuses to run if the rc tag does not exist, if that commit has no successful build run, or if
-`0.1.2` is already tagged — bump `VERSION` on `main` first in that last case.
+The package comes from the rc's own **prerelease asset**, not from its build run's artifact, so
+there is no 90-day limit on how old a candidate may be.
 
-Artifacts are kept 90 days. Promoting an rc older than that has nothing left to download; build a
-fresh rc from `main` and promote that.
+It refuses, rather than guessing, if the tag is not a bare `X.Y.Z`, if no rc was built from that
+commit, or if the rc's asset does not look like a package. The restamp verifies itself in both
+`INSTALL.txt` and `fomod/info.xml` and fails rather than publish a mislabelled package.
+
+Two things to know:
+
+- **Drafts do not trigger workflows.** GitHub fires `release` only on publish, so the asset appears
+  a minute or two after the release goes public. Write the notes in the draft; publish when ready.
+- **Bump `VERSION` on `main`** when a release ships, so the next candidate series is numbered for
+  the next version rather than the one just published.
