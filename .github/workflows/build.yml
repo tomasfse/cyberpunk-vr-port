@@ -4,7 +4,7 @@ name: build
 # run artifact, so "what did the tester actually run" always has an answer.
 #
 #   feature branch / PR   0.1.2-dev.<short-sha>     artifact only
-#   main                  0.1.2-rc.N.<short-sha>    artifact + a bare tag of that name
+#   main                  0.1.2-rc.N.<short-sha>    tagged + published as a GitHub prerelease
 #   release               0.1.2                     cut by hand from an rc, see release.yml
 #
 # ONE RUN PER COMMIT, from whichever event can see it.
@@ -21,11 +21,11 @@ name: build
 #
 # So the `pull_request` run is dropped for PRs whose head is in THIS repo, which is exactly the
 # overlapping case. Same-repo branch -> one run via push. Fork PR -> one run via pull_request.
-# The `if` sits on the version job alone: build needs it, tag-rc needs both, and a skipped
+# The `if` sits on the version job alone: build needs it, publish-rc needs both, and a skipped
 # dependency skips them too.
 #
 # No `tags-ignore` is needed: a branch filter already excludes tag pushes, which matters because
-# tag-rc pushes a tag from inside this workflow.
+# publish-rc pushes a tag from inside this workflow.
 on:
   push:
     branches: ['**']
@@ -36,9 +36,9 @@ concurrency:
   group: build-${{ github.ref }}
   # NOT on main. Every build of main is a release candidate and gets a tag, and release.yml can
   # only promote a tag that exists. Cancelling the in-flight build of an earlier commit skips its
-  # tag-rc job -- but ci_version.sh numbers rc's by counting commits, so the number is not handed
-  # back. Two pushes in quick succession would leave a permanent hole in the rc sequence and an
-  # rc that can never be released.
+  # publish-rc job -- but ci_version.sh numbers rc's by counting commits, so the number is not
+  # handed back. Two pushes in quick succession would leave a permanent hole in the rc sequence
+  # and an rc that can never be released.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -145,26 +145,60 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-  # Every build of main is a release candidate and gets a tag, so release.yml has something
-  # concrete to promote and an rc is always traceable to one commit.
-  tag-rc:
+  # Every build of main is a release candidate: it gets a tag, so release.yml has something
+  # concrete to promote and an rc is always traceable to one commit, and it gets a GitHub
+  # prerelease carrying the package.
+  #
+  # The prerelease is what makes an rc reachable. A run artifact needs a signed-in GitHub account
+  # to download and is deleted after 90 days; a release asset is a plain public URL that does not
+  # expire, which is what a tester actually needs. GitHub keeps prereleases off the "Latest"
+  # badge, so a real release still stands out.
+  publish-rc:
     needs: [version, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
-      contents: write
+      contents: write   # push the tag, create the prerelease
+      actions: read     # download this run's own package artifact
     steps:
       - uses: actions/checkout@v4
+
       - name: Tag ${{ needs.version.outputs.tag }}
         env:
           TAG: ${{ needs.version.outputs.tag }}
         run: |
+          set -euo pipefail
+          # Not `exit 0` on the already-exists path any more: the prerelease step below still has
+          # to run, or a re-run that finds its tag in place would leave the release unpublished.
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "$TAG already exists, leaving it alone"
+          else
+            git -c user.name=github-actions[bot] \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                tag -a "$TAG" -m "Release candidate $TAG"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - name: Publish ${{ needs.version.outputs.tag }} as a prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+          ARTIFACT: ${{ needs.version.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "prerelease $TAG is already published, leaving it alone"
             exit 0
           fi
-          git -c user.name=github-actions[bot] \
-              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              tag -a "$TAG" -m "Release candidate $TAG"
-          git push origin "refs/tags/$TAG"
+          # This run's own artifact -- no searching for it, the build job that produced it is a
+          # declared dependency. It comes back extracted, as the package tree.
+          gh run download "$GITHUB_RUN_ID" --name "$ARTIFACT" --dir pkg
+          (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
+          gh release create "$TAG" \
+            --prerelease \
+            --title "CyberpunkVRPort $VERSION" \
+            --generate-notes \
+            --notes "Release candidate, built from \`$GITHUB_SHA\`. Not a release: the **release** workflow promotes it once it has been tested, publishing these exact binaries rather than rebuilding them." \
+            "CyberpunkVRPort-$VERSION.zip"

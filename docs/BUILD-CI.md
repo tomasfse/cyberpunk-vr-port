@@ -14,7 +14,7 @@ repo that decides a version.
 | Where the commit lands | Version            | What happens                                    |
 | ---------------------- | ------------------ | ----------------------------------------------- |
 | feature branch, PR     | `0.1.2-dev.a1b2c3d`| package uploaded as a run artifact               |
-| `main`                 | `0.1.2-rc.4.a1b2c3d` | package uploaded, commit tagged the same       |
+| `main`                 | `0.1.2-rc.4.a1b2c3d` | tagged, and published as a GitHub **prerelease** |
 | release                | `0.1.2`            | cut by hand from an rc, see below                |
 
 The short sha makes every build name the exact commit it came from — two people testing "the
@@ -33,9 +33,22 @@ To aim at a different release number, bump `VERSION` on `main`; that commit beco
 2. `CyberpunkVR_Hands.dll` — `src/red4ext_plugin`, its own project, `RelWithDebInfo`.
 3. `scripts/build_dist.ps1 -Zip` — assembles the game-root layout and zips it.
 
-Two artifacts come out of each run: `CyberpunkVRPort-<version>` (the installable zip) and
+Two artifacts come out of each run: `CyberpunkVRPort-<version>` (the installable package) and
 `CyberpunkVRPort-<version>-symbols` (the PDBs). The PDBs ship nowhere, but a crash dump against
 that build is unreadable without them and the build tree dies with the runner.
+
+## Release candidates
+
+Every push to `main` is a candidate. It is tagged, and the package is published as a GitHub
+**prerelease** carrying `CyberpunkVRPort-<version>.zip`.
+
+That prerelease is what makes an rc reachable by a tester. A run artifact needs a signed-in GitHub
+account to download and is deleted after 90 days; a release asset is a public URL that does not
+expire. Prereleases never take the "Latest" badge, so a real release still stands out on the
+releases page.
+
+The cost is one prerelease per commit on `main`. That is the intent — every commit on `main` is a
+candidate by design — but the releases page grows accordingly.
 
 ## Cutting a release
 

@@ -76,7 +76,7 @@ tag)
         # The sha rides along for the same reason it does on a dev build: the package names the
         # commit it came from. rc.N alone looks unique -- N is a commit count -- but it is only
         # unique as long as main's history is never rewritten. Force-push main and the next build
-        # re-derives the same N for a different commit; tag-rc then finds that tag already exists
+        # re-derives the same N for a different commit; publish-rc then finds that tag already exists
         # and leaves it alone, and an rc.N package ships whose contents are not the rc.N tag.
         # With the sha in the version that mismatch is visible in the filename instead of silent.
         version="$base-rc.$((n + 1)).$short"
