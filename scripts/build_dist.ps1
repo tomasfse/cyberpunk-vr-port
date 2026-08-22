@@ -144,6 +144,17 @@ if (Test-Path $hud) {
     Add-File (Need (Join-Path $hud "persistency.json") "persistency.json") "bin\x64\plugins\cyber_engine_tweaks\mods\HUDitor\persistency.json"
 }
 
+# ---- the Vortex / MO2 installer ----------------------------------------------------------------
+# Installs; does not check dependencies -- Vortex resolves a FOMOD fileDependency out of its
+# plugin/load-order list, which Cyberpunk does not have, so a gate refuses everyone. That job
+# belongs to the Requirements list on the Nexus page. Manual installers never see this folder:
+# extracting the zip by hand ignores fomod\ entirely and the layout below still lands correctly.
+Add-File (Need (Join-Path $RepoRoot "mods\fomod\ModuleConfig.xml") "ModuleConfig.xml") "fomod\ModuleConfig.xml"
+$fomodInfo = (Get-Content (Need (Join-Path $RepoRoot "mods\fomod\info.xml") "info.xml") -Raw).Replace("@VERSION@", $Version)
+$fomodDst  = Join-Path $Out "fomod\info.xml"
+Set-Content $fomodDst $fomodInfo -Encoding utf8 -NoNewline
+$manifest += [pscustomobject]@{ Path = "fomod\info.xml"; Bytes = (Get-Item -LiteralPath $fomodDst).Length }
+
 # ---- the OpenXR probe is NOT packaged ---------------------------------------------------------
 # It stays in tools\xr_probe\ and goes to a tester by hand, when there is something to measure.
 # Registering a MACHINE-WIDE OpenXR API layer is not a thing to ship to everyone who installs a
