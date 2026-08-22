@@ -7,20 +7,28 @@ name: build
 #   main                  0.1.2-rc.N.<short-sha>    artifact + a bare tag of that name
 #   release               0.1.2                     cut by hand from an rc, see release.yml
 #
-# ONE RUN PER COMMIT. `push` used to fire on every branch, so a branch with an open PR built
-# twice for the same commit -- and because the build job checks out the PR's HEAD rather than the
-# merge commit, the two runs compiled the same sha into the same package under the same version.
-# Not two views of the change: the same build, billed twice at the Windows rate.
+# ONE RUN PER COMMIT, from whichever event can see it.
 #
-# `push` is therefore limited to main, and branches are built through `pull_request`. The cost is
-# that a branch with no PR open gets no build; `workflow_dispatch` covers that on demand, and
-# opening the PR (draft is enough) is the normal way to ask for one.
+# Both triggers are on, because neither covers everything. `push` does not fire for a PR opened
+# from a FORK -- the push happened in the fork, not here -- and this project takes fork PRs (#5
+# and #6 in the history came from other accounts). `pull_request` does not fire for a branch with
+# no PR open, and a tester's -dev package is often wanted before there is one.
 #
-# No `tags-ignore` is needed any more: a branch filter already excludes tag pushes, which matters
-# because tag-rc pushes a tag from inside this workflow.
+# Left alone the two overlap on same-repo branches: a branch with an open PR built twice for the
+# same commit. Not two views of the change -- the build job checks out the PR's HEAD rather than
+# the merge commit, so both runs compiled the same sha into the same package under the same
+# version, billed twice at the Windows rate.
+#
+# So the `pull_request` run is dropped for PRs whose head is in THIS repo, which is exactly the
+# overlapping case. Same-repo branch -> one run via push. Fork PR -> one run via pull_request.
+# The `if` sits on the version job alone: build needs it, tag-rc needs both, and a skipped
+# dependency skips them too.
+#
+# No `tags-ignore` is needed: a branch filter already excludes tag pushes, which matters because
+# tag-rc pushes a tag from inside this workflow.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
   workflow_dispatch:
 
@@ -38,6 +46,10 @@ permissions:
 
 jobs:
   version:
+    # Skip the pull_request run when push already built this commit -- see the header.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
