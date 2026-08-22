@@ -21,7 +21,7 @@ computes a version**; a number invented in a YAML step is a number that drifts.
 | Ref | Version | What happens |
 |---|---|---|
 | feature branch / PR | `0.1.2-dev.<short-sha>` | artifact only |
-| `main` | `0.1.2-rc.N` | artifact + a bare `0.1.2-rc.N` tag on the commit |
+| `main` | `0.1.2-rc.N.<short-sha>` | artifact + a bare tag of that name |
 | manual dispatch of `release.yml` | `0.1.2` | promotes an existing rc |
 
 `N` counts commits since `VERSION` last changed, so the bump commit is itself `rc.1` and a fresh
@@ -38,8 +38,8 @@ VERSION_REF_NAME=main VERSION_REF_TYPE=branch bash scripts/ci_version.sh
 
 1. Land the work on `main`. Every push to `main` builds and tags an rc automatically.
 2. Have a tester run that rc's artifact. That is the point of the rc existing.
-3. `Actions → release → Run workflow`, `rc_tag: 0.1.2-rc.3`. Optionally override `version`, or
-   tick draft/prerelease.
+3. `Actions → release → Run workflow`, `rc_tag: 0.1.2-rc.3.a1b2c3d`. Optionally override
+   `version`, or tick draft/prerelease.
 
 The workflow refuses to promote a tag that does not exist, a malformed `rc_tag`, or a version that
 is already tagged.

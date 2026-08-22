@@ -14,11 +14,12 @@ repo that decides a version.
 | Where the commit lands | Version            | What happens                                    |
 | ---------------------- | ------------------ | ----------------------------------------------- |
 | feature branch, PR     | `0.1.2-dev.a1b2c3d`| package uploaded as a run artifact               |
-| `main`                 | `0.1.2-rc.4`       | package uploaded, commit tagged `0.1.2-rc.4`     |
+| `main`                 | `0.1.2-rc.4.a1b2c3d` | package uploaded, commit tagged the same       |
 | release                | `0.1.2`            | cut by hand from an rc, see below                |
 
-The short sha makes every feature build name the exact commit it came from — two people testing
-"the branch" can tell whether they are testing the same thing. The rc number counts commits on
+The short sha makes every build name the exact commit it came from — two people testing "the
+branch" can tell whether they are testing the same thing, and an rc that does not match its own
+tag is visible in the filename instead of silent. The rc number counts commits on
 `main` since `VERSION` last changed, so it restarts at `rc.1` on a version bump and never skips.
 The ordering falls out of SemVer on its own: `0.1.2-dev.*` < `0.1.2-rc.*` < `0.1.2`.
 
@@ -40,14 +41,14 @@ that build is unreadable without them and the build tree dies with the runner.
 
 Releases are manual and always promote a release candidate that already exists:
 
-> Actions → **release** → Run workflow → `rc_tag: 0.1.2-rc.3`
+> Actions → **release** → Run workflow → `rc_tag: 0.1.2-rc.3.a1b2c3d`
 
 It does not rebuild. It downloads the package that rc's build run produced, restamps the version
 line in `INSTALL.txt`, tags the commit `0.1.2` and publishes the release with
 `CyberpunkVRPort-0.1.2.zip` attached. The DLLs a player downloads are byte-for-byte the ones the
 testers ran — recompiling "the same commit" would hand out binaries nobody has tested.
 
-Inputs: `version` overrides the derived number (`0.1.2-rc.3` → `0.1.2`), and `draft` /
+Inputs: `version` overrides the derived number (`0.1.2-rc.3.a1b2c3d` → `0.1.2`), and `draft` /
 `prerelease` are there when a release wants a second look before it is public.
 
 It refuses to run if the rc tag does not exist, if that commit has no successful build run, or if

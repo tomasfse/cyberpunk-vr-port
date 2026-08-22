@@ -110,7 +110,7 @@ that computes a version** — never invent one in a workflow step.
 | Ref | Version | Effect |
 |---|---|---|
 | feature branch / PR | `0.1.2-dev.<short-sha>` | artifact only |
-| `main` | `0.1.2-rc.N` | artifact + a bare `0.1.2-rc.N` tag, N counts commits since the VERSION bump |
+| `main` | `0.1.2-rc.N.<short-sha>` | artifact + a bare tag of that name, N counts commits since the VERSION bump |
 | manual dispatch | `0.1.2` | `release.yml` **promotes** an existing rc |
 
 The release **does not rebuild**. It downloads the zip that rc's build run produced, rewrites the

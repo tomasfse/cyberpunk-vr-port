@@ -4,7 +4,7 @@
 # else computes a version -- a number invented inside a YAML step is a number that drifts.
 #
 #   feature branch / PR      X.Y.Z-dev.<short-sha>    0.1.2-dev.a1b2c3d
-#   main                     X.Y.Z-rc.N               0.1.2-rc.4
+#   main                     X.Y.Z-rc.N.<short-sha>   0.1.2-rc.4.a1b2c3d
 #   tag <semver>             <semver>                 0.1.2
 #
 # TAGS CARRY NO `v` PREFIX. That is the author's existing convention -- the historical tags are
@@ -73,7 +73,13 @@ tag)
         else
             n=$(git rev-list --count "$sha")
         fi
-        version="$base-rc.$((n + 1))"
+        # The sha rides along for the same reason it does on a dev build: the package names the
+        # commit it came from. rc.N alone looks unique -- N is a commit count -- but it is only
+        # unique as long as main's history is never rewritten. Force-push main and the next build
+        # re-derives the same N for a different commit; tag-rc then finds that tag already exists
+        # and leaves it alone, and an rc.N package ships whose contents are not the rc.N tag.
+        # With the sha in the version that mismatch is visible in the filename instead of silent.
+        version="$base-rc.$((n + 1)).$short"
         channel=rc
     else
         version="$base-dev.$short"

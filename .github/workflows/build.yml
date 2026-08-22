@@ -3,13 +3,24 @@ name: build
 # The mod is built here and nowhere else. Every push gets a versioned, installable package as a
 # run artifact, so "what did the tester actually run" always has an answer.
 #
-#   feature branch / PR   0.1.2-dev.<short-sha>   artifact only
-#   main                  0.1.2-rc.N              artifact + a bare 0.1.2-rc.N tag on the commit
-#   release               0.1.2                   cut by hand from an rc, see release.yml
+#   feature branch / PR   0.1.2-dev.<short-sha>     artifact only
+#   main                  0.1.2-rc.N.<short-sha>    artifact + a bare tag of that name
+#   release               0.1.2                     cut by hand from an rc, see release.yml
+#
+# ONE RUN PER COMMIT. `push` used to fire on every branch, so a branch with an open PR built
+# twice for the same commit -- and because the build job checks out the PR's HEAD rather than the
+# merge commit, the two runs compiled the same sha into the same package under the same version.
+# Not two views of the change: the same build, billed twice at the Windows rate.
+#
+# `push` is therefore limited to main, and branches are built through `pull_request`. The cost is
+# that a branch with no PR open gets no build; `workflow_dispatch` covers that on demand, and
+# opening the PR (draft is enough) is the normal way to ask for one.
+#
+# No `tags-ignore` is needed any more: a branch filter already excludes tag pushes, which matters
+# because tag-rc pushes a tag from inside this workflow.
 on:
   push:
-    branches: ['**']
-    tags-ignore: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -66,9 +77,9 @@ jobs:
           # sha in its filename and a different one in the INSTALL.txt line build_dist.ps1 writes
           # from `git rev-parse HEAD`. "What did the tester actually run" needs those to agree.
           #
-          # The trade: a PR build no longer proves the MERGE compiles, only the branch. That is
-          # covered anyway -- push builds every branch including main, so a merge that breaks the
-          # build is caught by main's own run seconds later.
+          # The trade: a PR build no longer proves the MERGE compiles, only the branch. Pushes to
+          # main are still built, so a merge that breaks the build is caught by main's own run
+          # seconds later -- and on main that run is the rc, which is the one that has to be good.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       # OpenXR-SDK and imgui come down through FetchContent on every configure otherwise.

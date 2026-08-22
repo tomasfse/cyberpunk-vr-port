@@ -6,7 +6,7 @@ name: release
 # a player downloads are byte-for-byte the ones a tester ran -- only the version stamped on the
 # package changes. Recompiling "the same commit" would quietly hand out binaries nobody tested.
 #
-#   Actions -> release -> Run workflow -> rc_tag: 0.1.2-rc.3
+#   Actions -> release -> Run workflow -> rc_tag: 0.1.2-rc.3.a1b2c3d
 #   => tag 0.1.2 on that commit + a GitHub release carrying CyberpunkVRPort-0.1.2.zip
 #
 # Tags are bare, with no `v` prefix, matching the tags the author already published.
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       rc_tag:
-        description: 'Release candidate to promote, e.g. 0.1.2-rc.3'
+        description: 'Release candidate to promote, e.g. 0.1.2-rc.3.a1b2c3d'
         required: true
         type: string
       version:
@@ -53,8 +53,10 @@ jobs:
           # Tags are bare. A typed-in `v` is stripped rather than rejected -- it resolves to the
           # same release either way, and being strict about it would only fail a human's habit.
           RC_TAG=${RC_TAG#v}
-          if [[ ! $RC_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
-            echo "::error::rc_tag must look like 0.1.2-rc.3, got '$RC_TAG'"
+          # rc tags carry the commit: 0.1.2-rc.3.a1b2c3d. The sha is part of the tag name, not
+          # decoration, so it is required here -- a bare 0.1.2-rc.3 names no tag that exists.
+          if [[ ! $RC_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+\.[0-9A-Za-z]+$ ]]; then
+            echo "::error::rc_tag must look like 0.1.2-rc.3.a1b2c3d, got '$RC_TAG'"
             exit 1
           fi
           if ! sha=$(git rev-parse -q --verify "refs/tags/$RC_TAG^{commit}"); then
