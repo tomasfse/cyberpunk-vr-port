@@ -109,25 +109,9 @@ Repository: <https://github.com/dariulone/cyberpunk-vr-port>
 - SteamVR (OpenVR) runtime supported alongside OpenXR; pre-launch resolution
   selector; quiet-by-default logging with a DEBUG toggle in the launcher.
 
-## Requirements
+## Installation dependencies
 
-- Cyberpunk 2077 (PC, 2.31).
-- Cyber Engine Tweaks
-- RED4ext
-- ArchiveXL
-- TweakXL
-- redscript
-- Codeware (**1.20 or newer** — older builds fail script compilation)
-- Visual Holsters (Automatic Clothes Swap)
-- Visible Bullets (Projectile Restoration)
-- Equipment-EX
-- Nova Optics
-- Input Loader
-- HUDitor
-
-Recommended but not required: **HUDitor**, **Visible Bullets**, for HUD placement — the port ships a
-VR-tuned layout for it in `mods\config\huditor\` and no longer moves HUD widgets
-itself.
+All on Nexus except the OpenXR runtime, which comes with your headset software.
 
 **Required**
 
@@ -138,20 +122,24 @@ itself.
 - [ArchiveXL](https://www.nexusmods.com/cyberpunk2077/mods/4198)
 - [TweakXL](https://www.nexusmods.com/cyberpunk2077/mods/4197)
 - [Codeware](https://www.nexusmods.com/cyberpunk2077/mods/7780) — 1.20 or newer
+- [Equipment-EX](https://www.nexusmods.com/cyberpunk2077/mods/6945)
+- [Visual Holsters (Automatic Clothes Swap)](https://www.nexusmods.com/cyberpunk2077/mods/21936)
+- [Nova Optics](https://www.nexusmods.com/cyberpunk2077/mods/29190)
 - An OpenXR runtime, started **before** the game
 
 Install RED4ext, CET and redscript first.
 
 **Optional**
 
-- [Equipment-EX](https://www.nexusmods.com/cyberpunk2077/mods/6945) — VR smoking props
-- [Visual Holsters](https://www.nexusmods.com/cyberpunk2077/mods/21936) — immersive
-  holster mode; simple mode works without it
-
-**Recommended**
-
+- [HUDitor](https://www.nexusmods.com/cyberpunk2077/mods/3315) and
+  [Input Loader](https://www.nexusmods.com/cyberpunk2077/mods/4575) — only for HUD
+  placement. This package carries the port's HUDitor setup (the editor on F11, and
+  a VR layout in `mods\config\huditor\`), and Input Loader is what merges
+  `r6\input\*.xml`, so without it the F11 binding is inert. Note that
+  `persistency.json` **replaces** any HUDitor layout you already have. Without a HUD
+  editor the flat-screen HUD is used unchanged, and the port still composites it
+  into the second eye either way.
 - [Visible Bullets](https://www.nexusmods.com/cyberpunk2077/mods/22251)
-- [Nova Optics](https://www.nexusmods.com/cyberpunk2077/mods/29190)
 
 ## Development dependencies
 

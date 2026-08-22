@@ -121,13 +121,6 @@ jobs:
       - name: Build stereo plugin
         run: cmake --build build --config Release --parallel
 
-      # CyberpunkVR_Hands.dll -- a separate RED4ext plugin with its own project. build_dist.ps1
-      # looks for it under src\red4ext_plugin\build\RelWithDebInfo\, so build it exactly there.
-      - name: Configure hands plugin
-        run: cmake -S src/red4ext_plugin -B src/red4ext_plugin/build -A x64
-      - name: Build hands plugin
-        run: cmake --build src/red4ext_plugin/build --config RelWithDebInfo --parallel
-
       # No -Zip. actions/upload-artifact ALWAYS zips what it is handed, so uploading our own
       # zip produced a zip inside a zip: Vortex opened the outer one, found a single .zip with
       # no fomod\ and no game folders at its root, and had nothing to install.
@@ -148,9 +141,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}-symbols
-          path: |
-            build/bin/red4ext/plugins/CyberpunkVR_Stereo/Release/*.pdb
-            src/red4ext_plugin/build/RelWithDebInfo/*.pdb
+          path: build/bin/red4ext/plugins/CyberpunkVR_Stereo/Release/*.pdb
           if-no-files-found: warn
           retention-days: 90
 

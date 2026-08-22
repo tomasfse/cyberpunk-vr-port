@@ -13,8 +13,8 @@
     controllers merged into the game's own gamepad input, VRIK arms, and gameplay mods for HUD
     placement, holsters, melee, weapon handling and smoking.
 
-    Requires RED4ext, Cyber Engine Tweaks, redscript, ArchiveXL, TweakXL and Codeware 1.20 or
-    newer. An OpenXR runtime must be started before the game; it ships with your headset
-    software.
+    Requires RED4ext, Cyber Engine Tweaks, redscript, ArchiveXL, TweakXL, Codeware 1.20 or
+    newer, Equipment-EX, Visual Holsters and Nova Optics. An OpenXR runtime must be started
+    before the game; it ships with your headset software.
   </Description>
 </fomod>

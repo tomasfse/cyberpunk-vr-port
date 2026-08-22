@@ -189,28 +189,25 @@ REQUIRED
     ArchiveXL            https://www.nexusmods.com/cyberpunk2077/mods/4198
     TweakXL              https://www.nexusmods.com/cyberpunk2077/mods/4197
     Codeware 1.20+       https://www.nexusmods.com/cyberpunk2077/mods/7780
+    Equipment-EX         https://www.nexusmods.com/cyberpunk2077/mods/6945
+    Visual Holsters      https://www.nexusmods.com/cyberpunk2077/mods/21936
+    Nova Optics          https://www.nexusmods.com/cyberpunk2077/mods/29190
 
     Install RED4ext, CET and redscript first.
-
-    HUDitor, plus RED4ext's input_loader -- ONLY if you want HUD placement. This package carries
-    the port's HUDitor setup (the editor on F11, and a VR layout), and input_loader is the plugin
-    that merges r6\input\*.xml, so without it the F11 binding is inert. Note that
-    persistency.json REPLACES any HUDitor layout you already have -- back yours up first if you
-    care about it. The port needs neither: with no HUD editor the flat-screen HUD is used
-    unchanged, and the port still composites it into the second eye either way.
 
     Nothing else may proxy dxgi. If bin\x64\dxgi.dll exists (R.E.A.L. VR installs one), move it
     out of the folder.
 
 OPTIONAL
-    Equipment-EX         https://www.nexusmods.com/cyberpunk2077/mods/6945
-        VR smoking props.
-    Visual Holsters      https://www.nexusmods.com/cyberpunk2077/mods/21936
-        Immersive holster mode. The simple mode works without it.
+    HUDitor              https://www.nexusmods.com/cyberpunk2077/mods/3315
+    Input Loader         https://www.nexusmods.com/cyberpunk2077/mods/4575
+        Only for HUD placement. This package carries the port's HUDitor setup (the editor on
+        F11, and a VR layout), and Input Loader is what merges r6\input\*.xml, so without it
+        the F11 binding is inert. persistency.json REPLACES any HUDitor layout you already
+        have -- back yours up first if you care about it. Without a HUD editor the flat-screen
+        HUD is used unchanged, and the port still composites it into the second eye either way.
 
-    Recommended:
     Visible Bullets      https://www.nexusmods.com/cyberpunk2077/mods/22251
-    Nova Optics          https://www.nexusmods.com/cyberpunk2077/mods/29190
 
 PREPARE THE GAME
     1. Install the required mods above and START THE GAME ONCE.
