@@ -21,7 +21,7 @@ computes a version**; a number invented in a YAML step is a number that drifts.
 | Ref | Version | What happens |
 |---|---|---|
 | feature branch / PR | `0.1.2-dev.<short-sha>` | artifact only |
-| `main` | `0.1.2-rc.N` | artifact + a `v0.1.2-rc.N` tag on the commit |
+| `main` | `0.1.2-rc.N` | artifact + a bare `0.1.2-rc.N` tag on the commit |
 | manual dispatch of `release.yml` | `0.1.2` | promotes an existing rc |
 
 `N` counts commits since `VERSION` last changed, so the bump commit is itself `rc.1` and a fresh
@@ -38,7 +38,7 @@ VERSION_REF_NAME=main VERSION_REF_TYPE=branch bash scripts/ci_version.sh
 
 1. Land the work on `main`. Every push to `main` builds and tags an rc automatically.
 2. Have a tester run that rc's artifact. That is the point of the rc existing.
-3. `Actions → release → Run workflow`, `rc_tag: v0.1.2-rc.3`. Optionally override `version`, or
+3. `Actions → release → Run workflow`, `rc_tag: 0.1.2-rc.3`. Optionally override `version`, or
    tick draft/prerelease.
 
 The workflow refuses to promote a tag that does not exist, a malformed `rc_tag`, or a version that
@@ -50,10 +50,10 @@ is already tagged.
 past the "no successful build run" check and then fails opaquely inside `gh run download`. If a
 release cycle is going to run long, promote sooner or re-run the build.
 
-**Tag prefix is split.** The 11 historical tags are bare (`0.0.2` … `0.1.1`); CI creates `v`-prefixed
-ones. The duplicate-guard in `release.yml` checks only `refs/tags/v$version`, so a hand-made bare
-`0.1.2` would not be detected and you would end up with `0.1.2` and `v0.1.2` on possibly different
-commits. Check both forms before promoting.
+**Tags are bare — no `v` prefix.** That is the author's existing convention (`0.0.2` … `0.1.1`) and
+CI follows it, so there is one namespace and the duplicate-guard sees the hand-made history too.
+Do not reintroduce a `v`: it would split the namespace and make the guard blind to everything
+released before CI existed.
 
 **The tag is pushed before the release is created.** If `gh release create` fails, the tag is
 already on origin and the next attempt hits "already tagged — bump VERSION on main". Recovering
@@ -72,7 +72,7 @@ group is configured to skip cancellation on `main` for exactly this reason.
 - [ ] `VERSION` reflects the number you intend to ship
 - [ ] The rc tag exists and its build run succeeded
 - [ ] Someone actually ran that artifact
-- [ ] Neither `0.1.2` nor `v0.1.2` is already tagged
+- [ ] `0.1.2` is not already tagged (the workflow checks this too)
 - [ ] The rc build is younger than 90 days
 - [ ] `README.md` requirements still match reality (game version, dependency list)
 - [ ] Assets were pulled with `sync_assets.ps1` before the commit that produced the rc

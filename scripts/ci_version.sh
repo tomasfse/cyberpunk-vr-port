@@ -5,7 +5,12 @@
 #
 #   feature branch / PR      X.Y.Z-dev.<short-sha>    0.1.2-dev.a1b2c3d
 #   main                     X.Y.Z-rc.N               0.1.2-rc.4
-#   tag v<semver>            <semver>                 0.1.2
+#   tag <semver>             <semver>                 0.1.2
+#
+# TAGS CARRY NO `v` PREFIX. That is the author's existing convention -- the historical tags are
+# bare (`0.0.2` ... `0.1.1`) -- and matching it keeps one tag namespace instead of two. It also
+# makes the duplicate guard in release.yml correct by construction: it checks the same form the
+# history already uses, so a version released before CI existed is still detected.
 #
 # X.Y.Z is read from the VERSION file at the repo root. Bump it when the NEXT release should carry
 # a different number; N restarts at 1 with that bump, because it counts the commits made since
@@ -48,9 +53,11 @@ fi
 
 case "$ref_type" in
 tag)
+    # A leading `v` is tolerated on the way in so a hand-made tag still resolves, but it is
+    # dropped: bare is the convention and the only form this script ever emits.
     tag=${ref_name#v}
     if [[ ! $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-        echo "tag '$ref_name' is not v<semver>" >&2
+        echo "tag '$ref_name' is not a semver tag" >&2
         exit 1
     fi
     version=$tag
@@ -79,5 +86,5 @@ echo "version=$version"
 echo "base=$base"
 echo "channel=$channel"
 echo "short_sha=$short"
-echo "tag=v$version"
+echo "tag=$version"
 echo "artifact=CyberpunkVRPort-$version"

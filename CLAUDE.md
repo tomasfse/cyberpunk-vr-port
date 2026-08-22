@@ -110,7 +110,7 @@ that computes a version** — never invent one in a workflow step.
 | Ref | Version | Effect |
 |---|---|---|
 | feature branch / PR | `0.1.2-dev.<short-sha>` | artifact only |
-| `main` | `0.1.2-rc.N` | artifact + a `v0.1.2-rc.N` tag, N counts commits since the VERSION bump |
+| `main` | `0.1.2-rc.N` | artifact + a bare `0.1.2-rc.N` tag, N counts commits since the VERSION bump |
 | manual dispatch | `0.1.2` | `release.yml` **promotes** an existing rc |
 
 The release **does not rebuild**. It downloads the zip that rc's build run produced, rewrites the
@@ -118,8 +118,10 @@ version where the package names it (`INSTALL.txt`, `fomod/info.xml`), and publis
 binaries — so a player runs what a tester ran. Preserving that property matters more than any
 convenience in `release.yml`.
 
-Note the tag-prefix split: the 11 historical tags are bare (`0.1.1`), the CI creates `v`-prefixed
-ones, and the duplicate-guard in `release.yml` only checks the `v` form.
+**Tags carry no `v` prefix**, matching the historical ones (`0.0.2` … `0.1.1`). One namespace, and
+the duplicate-guard in `release.yml` is correct by construction: it checks the same form the
+history already uses, so a version released before CI existed still blocks a re-release. A `v`
+typed into the `rc_tag` input is stripped rather than rejected.
 
 ## Architecture
 

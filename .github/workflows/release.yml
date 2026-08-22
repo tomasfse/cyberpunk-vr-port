@@ -6,13 +6,15 @@ name: release
 # a player downloads are byte-for-byte the ones a tester ran -- only the version stamped on the
 # package changes. Recompiling "the same commit" would quietly hand out binaries nobody tested.
 #
-#   Actions -> release -> Run workflow -> rc_tag: v0.1.2-rc.3
-#   => tag v0.1.2 on that commit + a GitHub release carrying CyberpunkVRPort-0.1.2.zip
+#   Actions -> release -> Run workflow -> rc_tag: 0.1.2-rc.3
+#   => tag 0.1.2 on that commit + a GitHub release carrying CyberpunkVRPort-0.1.2.zip
+#
+# Tags are bare, with no `v` prefix, matching the tags the author already published.
 on:
   workflow_dispatch:
     inputs:
       rc_tag:
-        description: 'Release candidate to promote, e.g. v0.1.2-rc.3'
+        description: 'Release candidate to promote, e.g. 0.1.2-rc.3'
         required: true
         type: string
       version:
@@ -48,8 +50,11 @@ jobs:
           OVERRIDE: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if [[ ! $RC_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
-            echo "::error::rc_tag must look like v0.1.2-rc.3, got '$RC_TAG'"
+          # Tags are bare. A typed-in `v` is stripped rather than rejected -- it resolves to the
+          # same release either way, and being strict about it would only fail a human's habit.
+          RC_TAG=${RC_TAG#v}
+          if [[ ! $RC_TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::rc_tag must look like 0.1.2-rc.3, got '$RC_TAG'"
             exit 1
           fi
           if ! sha=$(git rev-parse -q --verify "refs/tags/$RC_TAG^{commit}"); then
@@ -57,7 +62,7 @@ jobs:
             exit 1
           fi
 
-          rc_version=${RC_TAG#v}
+          rc_version=$RC_TAG
           if [[ -n $OVERRIDE ]]; then
             version=${OVERRIDE#v}
             if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -68,13 +73,15 @@ jobs:
             version=${rc_version%-rc.*}
           fi
 
-          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
-            echo "::error::v$version is already tagged -- bump VERSION on main before releasing again"
+          # Bare, so this also sees the releases the author tagged by hand before CI existed.
+          if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+            echo "::error::$version is already tagged -- bump VERSION on main before releasing again"
             exit 1
           fi
 
           {
             echo "sha=$sha"
+            echo "rc_tag=$RC_TAG"
             echo "rc_version=$rc_version"
             echo "version=$version"
             echo "rc_artifact=CyberpunkVRPort-$rc_version"
@@ -146,7 +153,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.rc.outputs.sha }}
-          RC_TAG: ${{ inputs.rc_tag }}
+          RC_TAG: ${{ steps.rc.outputs.rc_tag }}
           VERSION: ${{ steps.rc.outputs.version }}
           DRAFT: ${{ inputs.draft }}
           PRERELEASE: ${{ inputs.prerelease }}
@@ -154,11 +161,11 @@ jobs:
           set -euo pipefail
           git -c user.name='github-actions[bot]' \
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              tag -a "v$VERSION" -m "CyberpunkVRPort $VERSION (promoted from $RC_TAG)" "$SHA"
-          git push origin "refs/tags/v$VERSION"
+              tag -a "$VERSION" -m "CyberpunkVRPort $VERSION (promoted from $RC_TAG)" "$SHA"
+          git push origin "refs/tags/$VERSION"
 
           args=(--title "CyberpunkVRPort $VERSION" --generate-notes
                 --notes "Promoted from \`$RC_TAG\` — the binaries in this package are the ones that rc built, unchanged.")
           if [[ $DRAFT == true ]]; then args+=(--draft); fi
           if [[ $PRERELEASE == true ]]; then args+=(--prerelease); fi
-          gh release create "v$VERSION" "${args[@]}" "CyberpunkVRPort-$VERSION.zip"
+          gh release create "$VERSION" "${args[@]}" "CyberpunkVRPort-$VERSION.zip"

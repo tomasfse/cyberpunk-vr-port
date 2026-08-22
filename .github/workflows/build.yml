@@ -4,7 +4,7 @@ name: build
 # run artifact, so "what did the tester actually run" always has an answer.
 #
 #   feature branch / PR   0.1.2-dev.<short-sha>   artifact only
-#   main                  0.1.2-rc.N              artifact + a v0.1.2-rc.N tag on the commit
+#   main                  0.1.2-rc.N              artifact + a bare 0.1.2-rc.N tag on the commit
 #   release               0.1.2                   cut by hand from an rc, see release.yml
 on:
   push:
