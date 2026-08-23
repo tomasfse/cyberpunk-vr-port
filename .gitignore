@@ -88,5 +88,10 @@ mods/cet/**/vrik_recenter.ini
 # Claude Rewind Tool
 .claude-rewind/
 
+# Claude Code: agent guidance and per-machine settings. Local only -- this is a fork, and none of
+# it belongs in a PR to upstream.
+CLAUDE.md
+.claude/
+
 # Stereo-plugin build output
 /build-stereo/

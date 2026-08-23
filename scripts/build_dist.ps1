@@ -9,7 +9,7 @@
 #   pwsh scripts\build_dist.ps1 -Version 0.1.1 -Zip
 
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "",
     [string]$BuildDir = "build",
     [switch]$Zip,
     [switch]$Force
@@ -17,6 +17,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+
+# CI always passes -Version (see scripts/ci_version.sh). A local run falls back to the VERSION
+# file rather than to a literal that goes stale the first time anyone bumps it.
+if (-not $Version) {
+    $Version = (Get-Content (Join-Path $RepoRoot "VERSION") -Raw).Trim()
+}
 $Out      = Join-Path $RepoRoot "dist\CyberpunkVRPort-$Version"
 
 # Folders that exist for development and have no business in a tester's game.
@@ -115,10 +121,17 @@ if (Test-Path $tw) {
 }
 
 # ---- packed archives ---------------------------------------------------------------------------
-foreach ($a in @("cyberpunkvrport.archive","VRCigarette.archive.xl","vrport_basketball.archive")) {
-    $p = Join-Path $RepoRoot "mods\archive\$a"
-    if (Test-Path $p) { Add-File $p "archive\pc\mod\$a" }
-    else { Write-Host "[!] $a is not in the repo -- run sync_assets.ps1 first" }
+# ENUMERATED, for the same reason the grip poses are. The list used to be hardcoded, and
+# vrport_mag.archive -- packed for the physical reload in 0.1.2 -- was never added to it, so no CI
+# package has ever carried it. An archive ships by existing in archive\pc\mod\; nothing references
+# it by name, so a missing one is silent, and the mod is simply short an asset.
+#
+# Not recursive: mods\archive\source\ is the WolvenKit authoring tree (raw .app.json), not output.
+$archives = Get-ChildItem (Join-Path $RepoRoot "mods\archive") -File -Filter "*.archive*" |
+            Sort-Object Name
+if (-not $archives) { Write-Host "[!] no archives in mods\archive -- run sync_assets.ps1 first" }
+foreach ($a in $archives) {
+    Add-File $a.FullName "archive\pc\mod\$($a.Name)"
 }
 
 # ---- HUDitor: the port's setup, on the paths the mod actually uses ----------------------------
@@ -177,24 +190,53 @@ BEFORE YOU INSTALL -- READ THIS ONE
 
     To ask for the settings later, set first_launch=1 and start the game once.
 
-REQUIREMENTS
-    Cyberpunk 2077 2.31 (this build's engine offsets are matched to it)
-    RED4ext, Cyber Engine Tweaks, redscript, TweakXL, ArchiveXL, Codeware
-    An OpenXR runtime, started BEFORE the game
+REQUIRED
+    Cyberpunk 2077 2.31 -- this build's engine offsets are matched to it.
+    An OpenXR runtime, started BEFORE the game. This comes with your headset software (VDXR,
+        Meta, SteamVR, WMR); it is not a mod and not on Nexus.
 
-    HUDitor, plus RED4ext's input_loader -- ONLY if you want HUD placement. This package carries
-    the port's HUDitor setup (the editor on F11, and a VR layout), and input_loader is the plugin
-    that merges r6\input\*.xml, so without it the F11 binding is inert. Note that
-    persistency.json REPLACES any HUDitor layout you already have -- back yours up first if you
-    care about it. The port needs neither: with no HUD editor the flat-screen HUD is used
-    unchanged, and the port still composites it into the second eye either way.
+    RED4ext              https://www.nexusmods.com/cyberpunk2077/mods/2380
+    Cyber Engine Tweaks  https://www.nexusmods.com/cyberpunk2077/mods/107
+    redscript            https://www.nexusmods.com/cyberpunk2077/mods/1511
+    ArchiveXL            https://www.nexusmods.com/cyberpunk2077/mods/4198
+    TweakXL              https://www.nexusmods.com/cyberpunk2077/mods/4197
+    Codeware 1.20+       https://www.nexusmods.com/cyberpunk2077/mods/7780
+    Equipment-EX         https://www.nexusmods.com/cyberpunk2077/mods/6945
+    Visual Holsters      https://www.nexusmods.com/cyberpunk2077/mods/21936
+    Nova Optics          https://www.nexusmods.com/cyberpunk2077/mods/29190
+
+    Install RED4ext, CET and redscript first.
 
     Nothing else may proxy dxgi. If bin\x64\dxgi.dll exists (R.E.A.L. VR installs one), move it
-    out of the folder -- two VR paths in one process fight over the same engine hooks.
+    out of the folder.
+
+OPTIONAL
+    HUDitor              https://www.nexusmods.com/cyberpunk2077/mods/3315
+    Input Loader         https://www.nexusmods.com/cyberpunk2077/mods/4575
+        Only for HUD placement. This package carries the port's HUDitor setup (the editor on
+        F11, and a VR layout), and Input Loader is what merges r6\input\*.xml, so without it
+        the F11 binding is inert. persistency.json REPLACES any HUDitor layout you already
+        have -- back yours up first if you care about it. Without a HUD editor the flat-screen
+        HUD is used unchanged, and the port still composites it into the second eye either way.
+
+    Visible Bullets      https://www.nexusmods.com/cyberpunk2077/mods/22251
+
+PREPARE THE GAME
+    1. Install the required mods above and START THE GAME ONCE.
+
+    2. Turn off overlays: OpenXR Toolkit, RivaTuner, the NVIDIA and Steam overlays, Discord.
+
+    3. Graphics settings: everything on Low; Film Grain, Chromatic Aberration, Motion Blur,
+       Lens Flare, Depth of Field and Frame Generation OFF; display mode borderless window.
+
+    4. Coming from an earlier build of this mod? Delete bin\x64\dxgi.dll.
 
 INSTALL
     Extract the contents of this folder into your Cyberpunk 2077 game root -- the folder that
     contains bin\, r6\, red4ext\ and archive\. The paths inside already match.
+
+    With Vortex or MO2, install this zip as-is. Install the required mods first; the installer
+    does not check them for you.
 
     Then start your OpenXR runtime, then the game. A small launcher window appears first: pick
     your headset and per-eye render resolution there.
