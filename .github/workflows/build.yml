@@ -148,9 +148,26 @@ jobs:
           # This run's own artifact; comes back extracted, as the package tree.
           gh run download "$GITHUB_RUN_ID" --name "$ARTIFACT" --dir pkg
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
+          assets=("CyberpunkVRPort-$VERSION.zip")
+
+          # Symbols as their OWN asset, never inside the player's package. The PDB is the only way
+          # to read a crash dump from this build, and dumps arrive months later -- by which time
+          # the run artifact holding it has been deleted (90 days) and needed a GitHub account
+          # anyway. Nothing to leak: a PDB carries source paths and function names, and the source
+          # is this public repo.
+          #
+          # Its artifact is uploaded with if-no-files-found: warn, so it can legitimately be
+          # absent. Publish the package alone in that case rather than failing the whole rc.
+          if gh run download "$GITHUB_RUN_ID" --name "$ARTIFACT-symbols" --dir sym 2>/dev/null; then
+            (cd sym && zip -qr "../CyberpunkVRPort-$VERSION-symbols.zip" .)
+            assets+=("CyberpunkVRPort-$VERSION-symbols.zip")
+          else
+            echo "::warning::no symbols artifact on this run -- publishing the package alone"
+          fi
+
           gh release create "$TAG" \
             --prerelease \
             --title "CyberpunkVRPort $VERSION" \
             --generate-notes \
-            --notes "Release candidate, built from \`$GITHUB_SHA\`. Not a release: the **release** workflow promotes it once it has been tested, publishing these exact binaries rather than rebuilding them." \
-            "CyberpunkVRPort-$VERSION.zip"
+            --notes "Release candidate, built from \`$GITHUB_SHA\`. Not a release: the **release** workflow promotes it once it has been tested, publishing these exact binaries rather than rebuilding them. The \`-symbols\` asset is debug symbols for crash reports — players do not need it." \
+            "${assets[@]}"

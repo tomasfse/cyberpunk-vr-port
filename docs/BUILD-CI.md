@@ -38,13 +38,14 @@ inside a zip that Vortex could not install; the package tree is uploaded and Git
 the zip.
 
 Two artifacts come out of each run: `CyberpunkVRPort-<version>` (the installable package) and
-`CyberpunkVRPort-<version>-symbols` (the PDBs). The PDBs ship nowhere, but a crash dump against
-that build is unreadable without them and the build tree dies with the runner.
+`CyberpunkVRPort-<version>-symbols` (the PDBs). The PDBs are never inside the player's package,
+but a crash dump against that build is unreadable without them and the build tree dies with the
+runner.
 
 ## Release candidates
 
-Every push to `main` is a candidate. It is tagged, and the package is published as a GitHub
-**prerelease** carrying `CyberpunkVRPort-<version>.zip`.
+Every push to `main` is a candidate. It is tagged, and published as a GitHub **prerelease**
+carrying two assets: `CyberpunkVRPort-<version>.zip` and `CyberpunkVRPort-<version>-symbols.zip`.
 
 That prerelease is what makes an rc reachable by a tester. A run artifact needs a signed-in GitHub
 account to download and is deleted after 90 days; a release asset is a public URL that does not
@@ -70,7 +71,19 @@ when a release is cut from an earlier commit. Every commit on `main` gets an rc,
 commit you pick has one waiting.
 
 The package comes from the rc's own **prerelease asset**, not from its build run's artifact, so
-there is no 90-day limit on how old a candidate may be.
+there is no 90-day limit on how old a candidate may be. The symbols come across the same way,
+unmodified — only the filename takes the release version.
+
+## Symbols
+
+Every candidate and every release carries a `-symbols.zip` beside the package. Players do not
+need it; it exists so a crash dump can be read months after the build, which is when they tend to
+arrive and long after the run artifact holding the same PDBs was deleted. It is a separate asset,
+never inside the package, and there is nothing in a PDB to protect — source paths and function
+names, from a repo that is already public.
+
+Both workflows treat it as optional: a candidate built before symbols were attached, or a build
+that produced no PDB, publishes the package alone with a warning rather than failing.
 
 It refuses, rather than guessing, if the tag is not a bare `X.Y.Z`, if no rc was built from that
 commit, or if the rc's asset does not look like a package. The restamp checks its own result in

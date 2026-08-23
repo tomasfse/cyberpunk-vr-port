@@ -65,9 +65,12 @@ jobs:
         run: |
           set -euo pipefail
           # The rc's prerelease asset, not the build run's artifact: artifacts expire at 90 days.
-          gh release download "$RC" --pattern '*.zip' --dir staging
-          zip=$(ls staging/*.zip)
-          unzip -q "$zip" -d pkg
+          #
+          # Named exactly, NOT '*.zip'. The rc carries a second asset now -- its symbols -- and a
+          # glob would match both, leaving `ls` with two paths and unzip with a broken argument.
+          # The name is derivable rather than guessed: an rc's version IS its tag.
+          gh release download "$RC" --pattern "CyberpunkVRPort-$RC.zip" --dir staging
+          unzip -q "staging/CyberpunkVRPort-$RC.zip" -d pkg
 
           if [[ ! -f pkg/INSTALL.txt ]]; then
             echo "::error::$RC's asset is not a package -- no INSTALL.txt at its root"
@@ -86,6 +89,16 @@ jobs:
 
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
+          # Symbols ride along, from the same rc and unmodified -- only the filename takes the
+          # release version. A released build is the one most people run, so most crash dumps will
+          # come from it, and the run artifact that also held these PDBs expires at 90 days.
+          # Absent on candidates built before symbols were attached, so this must not be fatal.
+          if gh release download "$RC" --pattern "CyberpunkVRPort-$RC-symbols.zip" --dir sym 2>/dev/null; then
+            mv "sym/CyberpunkVRPort-$RC-symbols.zip" "CyberpunkVRPort-$VERSION-symbols.zip"
+          else
+            echo "::warning::$RC has no symbols asset -- releasing the package alone"
+          fi
+
       - name: Attach it
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,5 +106,8 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # --clobber so a re-run replaces the asset instead of failing.
-          gh release upload "$TAG" "CyberpunkVRPort-$VERSION.zip" --clobber
+          # The package, and the symbols beside it when the rc carried them. Only the two files
+          # built above match here -- staging\, sym\ and pkg\ are directories.
+          # --clobber so a re-run replaces the assets instead of failing.
+          ls -la CyberpunkVRPort-"$VERSION"*.zip
+          gh release upload "$TAG" CyberpunkVRPort-"$VERSION"*.zip --clobber
