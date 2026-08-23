@@ -144,15 +144,6 @@ if (Test-Path $hud) {
     Add-File (Need (Join-Path $hud "persistency.json") "persistency.json") "bin\x64\plugins\cyber_engine_tweaks\mods\HUDitor\persistency.json"
 }
 
-# ---- the Vortex / MO2 installer ----------------------------------------------------------------
-# Installs only; a dependency gate here cannot work (see mods\fomod\ModuleConfig.xml).
-# Extracting the zip by hand ignores fomod\ entirely and still lands correctly.
-Add-File (Need (Join-Path $RepoRoot "mods\fomod\ModuleConfig.xml") "ModuleConfig.xml") "fomod\ModuleConfig.xml"
-$fomodInfo = (Get-Content (Need (Join-Path $RepoRoot "mods\fomod\info.xml") "info.xml") -Raw).Replace("@VERSION@", $Version)
-$fomodDst  = Join-Path $Out "fomod\info.xml"
-Set-Content $fomodDst $fomodInfo -Encoding utf8 -NoNewline
-$manifest += [pscustomobject]@{ Path = "fomod\info.xml"; Bytes = (Get-Item -LiteralPath $fomodDst).Length }
-
 # ---- the OpenXR probe is NOT packaged ---------------------------------------------------------
 # It stays in tools\xr_probe\ and goes to a tester by hand, when there is something to measure.
 # Registering a MACHINE-WIDE OpenXR API layer is not a thing to ship to everyone who installs a

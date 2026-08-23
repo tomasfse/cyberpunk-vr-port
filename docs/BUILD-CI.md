@@ -70,7 +70,7 @@ there is no 90-day limit on how old a candidate may be.
 
 It refuses, rather than guessing, if the tag is not a bare `X.Y.Z`, if no rc was built from that
 commit, or if the rc's asset does not look like a package. The restamp verifies itself in both
-`INSTALL.txt` and `fomod/info.xml` and fails rather than publish a mislabelled package.
+`INSTALL.txt` and fails rather than publish a mislabelled package.
 
 Two things to know:
 

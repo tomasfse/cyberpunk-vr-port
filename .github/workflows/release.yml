@@ -69,13 +69,13 @@ jobs:
           zip=$(ls staging/*.zip)
           unzip -q "$zip" -d pkg
 
-          if [[ ! -f pkg/INSTALL.txt || ! -f pkg/fomod/info.xml ]]; then
-            echo "::error::$RC's asset is not a package -- no INSTALL.txt or fomod/info.xml at its root"
+          if [[ ! -f pkg/INSTALL.txt ]]; then
+            echo "::error::$RC's asset is not a package -- no INSTALL.txt at its root"
             ls -la pkg
             exit 1
           fi
 
-          # The only two files that name a version; nothing the game loads is touched.
+          # The only file that names a version; nothing the game loads is touched.
           # Not anchored to end-of-line -- INSTALL.txt is written from Windows and ends CRLF.
           sed -i "1s|CyberpunkVRPort $RC|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
           if ! head -1 pkg/INSTALL.txt | grep -qF "CyberpunkVRPort $VERSION"; then
@@ -83,14 +83,6 @@ jobs:
             exit 1
           fi
           head -1 pkg/INSTALL.txt
-
-          # MO2 reads this one; Vortex identifies mods by MD5 against Nexus instead.
-          sed -i "s|<Version>$RC</Version>|<Version>$VERSION</Version>|" pkg/fomod/info.xml
-          if ! grep -qF "<Version>$VERSION</Version>" pkg/fomod/info.xml; then
-            echo "::error::fomod/info.xml still reads '$(grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml)' -- refusing to publish a mislabelled package"
-            exit 1
-          fi
-          grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml
 
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
