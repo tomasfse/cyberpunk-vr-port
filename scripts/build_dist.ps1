@@ -121,10 +121,17 @@ if (Test-Path $tw) {
 }
 
 # ---- packed archives ---------------------------------------------------------------------------
-foreach ($a in @("cyberpunkvrport.archive","VRCigarette.archive.xl","vrport_basketball.archive")) {
-    $p = Join-Path $RepoRoot "mods\archive\$a"
-    if (Test-Path $p) { Add-File $p "archive\pc\mod\$a" }
-    else { Write-Host "[!] $a is not in the repo -- run sync_assets.ps1 first" }
+# ENUMERATED, for the same reason the grip poses are. The list used to be hardcoded, and
+# vrport_mag.archive -- packed for the physical reload in 0.1.2 -- was never added to it, so no CI
+# package has ever carried it. An archive ships by existing in archive\pc\mod\; nothing references
+# it by name, so a missing one is silent, and the mod is simply short an asset.
+#
+# Not recursive: mods\archive\source\ is the WolvenKit authoring tree (raw .app.json), not output.
+$archives = Get-ChildItem (Join-Path $RepoRoot "mods\archive") -File -Filter "*.archive*" |
+            Sort-Object Name
+if (-not $archives) { Write-Host "[!] no archives in mods\archive -- run sync_assets.ps1 first" }
+foreach ($a in $archives) {
+    Add-File $a.FullName "archive\pc\mod\$($a.Name)"
 }
 
 # ---- HUDitor: the port's setup, on the paths the mod actually uses ----------------------------
