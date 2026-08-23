@@ -1,16 +1,9 @@
 <!--
-  Vortex/MO2 installer definition. It installs; it does NOT check dependencies.
+  Vortex/MO2 installer. It installs; it does NOT check dependencies.
 
-  It used to carry a moduleDependencies gate on the six required mods. That gate can never
-  work for this game: Vortex answers a FOMOD fileDependency out of getAllPlugins(), its
-  plugin/load-order list, and Cyberpunk has no plugins and no load order in Vortex. The list
-  comes back empty, every check resolves to "not Active" no matter what is on disk, and the
-  install is refused for everybody. Observed on 0.1.2-dev.3f1766d: all six reported missing
-  on a machine that had all six.
-
-  Dependency checking belongs in the Requirements list on the Nexus page, which is a separate
-  web form, is what Vortex actually reads, and can offer to install what is missing. A FOMOD
-  can only refuse; it was never able to fetch anything anyway.
+  A moduleDependencies gate was tried and removed: Vortex answers a FOMOD fileDependency out of
+  its plugin/load-order list, which Cyberpunk does not have, so every check failed and the
+  install was refused for everybody. Dependency checking belongs in the Nexus Requirements list.
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">

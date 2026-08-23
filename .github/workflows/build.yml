@@ -1,31 +1,11 @@
 name: build
 
-# The mod is built here and nowhere else. Every push gets a versioned, installable package as a
-# run artifact, so "what did the tester actually run" always has an answer.
+#   feature branch / PR   0.1.2-dev.<sha>     artifact only
+#   main                  0.1.2-rc.N.<sha>    tagged + published as a GitHub prerelease
+#   release               0.1.2               see release.yml
 #
-#   feature branch / PR   0.1.2-dev.<short-sha>     artifact only
-#   main                  0.1.2-rc.N.<short-sha>    tagged + published as a GitHub prerelease
-#   release               0.1.2                     cut by hand from an rc, see release.yml
-#
-# ONE RUN PER COMMIT, from whichever event can see it.
-#
-# Both triggers are on, because neither covers everything. `push` does not fire for a PR opened
-# from a FORK -- the push happened in the fork, not here -- and this project takes fork PRs (#5
-# and #6 in the history came from other accounts). `pull_request` does not fire for a branch with
-# no PR open, and a tester's -dev package is often wanted before there is one.
-#
-# Left alone the two overlap on same-repo branches: a branch with an open PR built twice for the
-# same commit. Not two views of the change -- the build job checks out the PR's HEAD rather than
-# the merge commit, so both runs compiled the same sha into the same package under the same
-# version, billed twice at the Windows rate.
-#
-# So the `pull_request` run is dropped for PRs whose head is in THIS repo, which is exactly the
-# overlapping case. Same-repo branch -> one run via push. Fork PR -> one run via pull_request.
-# The `if` sits on the version job alone: build needs it, publish-rc needs both, and a skipped
-# dependency skips them too.
-#
-# No `tags-ignore` is needed: a branch filter already excludes tag pushes, which matters because
-# publish-rc pushes a tag from inside this workflow.
+# Both triggers are on: `push` misses fork PRs, `pull_request` misses branches with no PR. The
+# version job's `if` drops the overlapping case so no commit builds twice.
 on:
   push:
     branches: ['**']
@@ -34,11 +14,7 @@ on:
 
 concurrency:
   group: build-${{ github.ref }}
-  # NOT on main. Every build of main is a release candidate and gets a tag, and release.yml can
-  # only promote a tag that exists. Cancelling the in-flight build of an earlier commit skips its
-  # publish-rc job -- but ci_version.sh numbers rc's by counting commits, so the number is not
-  # handed back. Two pushes in quick succession would leave a permanent hole in the rc sequence
-  # and an rc that can never be released.
+  # Not on main: a cancelled build leaves a commit with no rc, and the number is never reissued.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -46,7 +22,7 @@ permissions:
 
 jobs:
   version:
-    # Skip the pull_request run when push already built this commit -- see the header.
+    # Drop the pull_request run when push already built this commit.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name != github.repository
@@ -83,15 +59,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          # BUILD THE COMMIT THE VERSION NAMES. The version job stamps the package with the head
-          # of the branch being proposed (see VERSION_SHA above); checking out the default ref
-          # here would build the ephemeral merge commit instead, so a -dev package would carry one
-          # sha in its filename and a different one in the INSTALL.txt line build_dist.ps1 writes
-          # from `git rev-parse HEAD`. "What did the tester actually run" needs those to agree.
-          #
-          # The trade: a PR build no longer proves the MERGE compiles, only the branch. Pushes to
-          # main are still built, so a merge that breaks the build is caught by main's own run
-          # seconds later -- and on main that run is the rc, which is the one that has to be good.
+          # Build the commit the version names, not the PR's merge commit -- the sha in the
+          # package filename and the one in INSTALL.txt have to agree.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       # OpenXR-SDK and imgui come down through FetchContent on every configure otherwise.
@@ -101,8 +70,7 @@ jobs:
           key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: deps-${{ runner.os }}-
 
-      # Which MSVC produced a DLL is the first question a crash report raises, and the runner
-      # image changes under us -- windows-latest carried VS2022 until it didn't.
+      # Which MSVC produced a DLL is the first question a crash report raises.
       - name: Toolchain
         run: |
           cmake --version
@@ -111,24 +79,17 @@ jobs:
           & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
               -latest -products * -property catalog_productDisplayVersion
 
-      # CyberpunkVR_Stereo.dll -- the VR plugin itself.
-      #
-      # The generator is NOT pinned. Naming one ties the build to a Visual Studio version that the
-      # runner image drops without warning; CMake's own default is the newest VS actually
-      # installed, which is the thing we want and cannot go stale.
+      # Generator deliberately not pinned: the runner image drops VS versions without warning.
       - name: Configure stereo plugin
         run: cmake -S . -B build -A x64
       - name: Build stereo plugin
         run: cmake --build build --config Release --parallel
 
-      # No -Zip. actions/upload-artifact ALWAYS zips what it is handed, so uploading our own
-      # zip produced a zip inside a zip: Vortex opened the outer one, found a single .zip with
-      # no fomod\ and no game folders at its root, and had nothing to install.
+      # No -Zip, and upload the TREE: upload-artifact always zips what it is handed, so handing
+      # it our own zip produced a zip inside a zip that Vortex could not install.
       - name: Package
         run: pwsh scripts/build_dist.ps1 -Version "${{ needs.version.outputs.version }}"
 
-      # Upload the package TREE. GitHub's own wrapper then IS the package, so what a tester
-      # downloads installs directly in Vortex and still extracts correctly by hand.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}
@@ -136,8 +97,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      # Not shipped, never in the package -- but a crash dump from this build is unreadable
-      # without it, and the build tree is gone the moment the runner is recycled.
+      # Never shipped, but a crash dump from this build is unreadable without it.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}-symbols
@@ -145,14 +105,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-  # Every build of main is a release candidate: it gets a tag, so release.yml has something
-  # concrete to promote and an rc is always traceable to one commit, and it gets a GitHub
-  # prerelease carrying the package.
-  #
-  # The prerelease is what makes an rc reachable. A run artifact needs a signed-in GitHub account
-  # to download and is deleted after 90 days; a release asset is a plain public URL that does not
-  # expire, which is what a tester actually needs. GitHub keeps prereleases off the "Latest"
-  # badge, so a real release still stands out.
+  # Every build of main is a release candidate. The prerelease is what makes it reachable: a run
+  # artifact needs a GitHub account and expires after 90 days, a release asset does neither.
   publish-rc:
     needs: [version, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -169,8 +123,7 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
-          # Not `exit 0` on the already-exists path any more: the prerelease step below still has
-          # to run, or a re-run that finds its tag in place would leave the release unpublished.
+          # No `exit 0` here: the prerelease step below still has to run on a re-run.
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "$TAG already exists, leaving it alone"
           else
@@ -192,8 +145,7 @@ jobs:
             echo "prerelease $TAG is already published, leaving it alone"
             exit 0
           fi
-          # This run's own artifact -- no searching for it, the build job that produced it is a
-          # declared dependency. It comes back extracted, as the package tree.
+          # This run's own artifact; comes back extracted, as the package tree.
           gh run download "$GITHUB_RUN_ID" --name "$ARTIFACT" --dir pkg
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
           gh release create "$TAG" \

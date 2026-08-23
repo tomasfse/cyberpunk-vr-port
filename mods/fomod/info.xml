@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  What Vortex shows on the mod's row. @VERSION@ is substituted by scripts\build_dist.ps1 with the
-  version CI stamped on the package — and rewritten again by release.yml when an rc is promoted,
-  so a released package never introduces itself to Vortex as the rc it was built from.
+  Mod metadata. MO2 reads it; Vortex does not, so an empty mod row is not fixable from here.
+  Vortex identifies a mod by hashing the archive and asking Nexus (getFileByMD5), which is why
+  the author's zip shows its details even downloaded from GitHub and ours shows none.
+
+  @VERSION@ is substituted by scripts\build_dist.ps1 and restamped by release.yml on promotion.
 -->
 <fomod>
   <Name>CyberpunkVRPort</Name>

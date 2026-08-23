@@ -145,10 +145,8 @@ if (Test-Path $hud) {
 }
 
 # ---- the Vortex / MO2 installer ----------------------------------------------------------------
-# Installs; does not check dependencies -- Vortex resolves a FOMOD fileDependency out of its
-# plugin/load-order list, which Cyberpunk does not have, so a gate refuses everyone. That job
-# belongs to the Requirements list on the Nexus page. Manual installers never see this folder:
-# extracting the zip by hand ignores fomod\ entirely and the layout below still lands correctly.
+# Installs only; a dependency gate here cannot work (see mods\fomod\ModuleConfig.xml).
+# Extracting the zip by hand ignores fomod\ entirely and still lands correctly.
 Add-File (Need (Join-Path $RepoRoot "mods\fomod\ModuleConfig.xml") "ModuleConfig.xml") "fomod\ModuleConfig.xml"
 $fomodInfo = (Get-Content (Need (Join-Path $RepoRoot "mods\fomod\info.xml") "info.xml") -Raw).Replace("@VERSION@", $Version)
 $fomodDst  = Join-Path $Out "fomod\info.xml"

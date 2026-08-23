@@ -1,23 +1,11 @@
 name: release
 
-# The author writes the release. This only attaches the binary.
+# The author writes the release in the Releases UI; this only attaches the binary.
 #
-#   GitHub -> Releases -> Draft a new release -> tag 0.1.3, write the notes, Publish
-#   => this workflow finds the release candidate built from that same commit, restamps the
-#      version the package names, and attaches CyberpunkVRPort-0.1.3.zip
+# IT DOES NOT REBUILD -- it takes the zip the matching release candidate already produced, so
+# what ships is what a tester ran. Any change here must preserve that.
 #
-# IT DOES NOT REBUILD. The zip a player downloads is the one the rc's build produced, so what
-# ships is what a tester ran. Recompiling "the same commit" would quietly hand out binaries
-# nobody has tested, and preserving that matters more than any convenience here.
-#
-# WHY IT MATCHES BY COMMIT and not "the newest rc": the release tag already names a commit, so
-# there is nothing to type and nothing to get wrong. The newest rc is not necessarily the one
-# that was tested, and it is the wrong answer outright when a release is cut from an earlier
-# commit. Every commit on main gets an rc, so whichever commit the author picks has one waiting.
-#
-# Drafts do not trigger workflows -- GitHub fires `release` only on publish -- so there is a
-# minute or two between the release going public and its asset appearing. That is the cost of
-# letting the author work entirely in the Releases UI, and it is worth it.
+# Drafts do not trigger workflows, so the asset appears a minute or two after publishing.
 on:
   release:
     types: [published]
@@ -27,8 +15,7 @@ permissions:
 
 jobs:
   attach:
-    # Prereleases are the rc's themselves, published by build.yml. Attaching to those would be a
-    # loop: an rc already carries its own package.
+    # Prereleases are the rc's themselves; they already carry their package.
     if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -52,9 +39,8 @@ jobs:
 
           sha=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}")
 
-          # The rc tag on the SAME commit. --points-at is exact: no sorting, no guessing which
-          # candidate was meant. More than one can only happen if main was force-pushed and a
-          # commit collected two rc numbers; take the newest and say so rather than pick silently.
+          # The rc on the SAME commit -- exact, nothing to type. Two can only exist if main was
+          # force-pushed; take the newest and say so rather than pick silently.
           mapfile -t rcs < <(git tag --points-at "$sha" --sort=-creatordate | grep -E -- '-rc\.' || true)
           if [[ ${#rcs[@]} -eq 0 ]]; then
             echo "::error::no release candidate was built from $sha -- only commits on main get one, and the package has to come from a build that already happened"
@@ -78,9 +64,7 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # From the rc's own prerelease asset, not from the build run's artifact: a run artifact
-          # is deleted after 90 days, a release asset is not. Promoting a candidate older than
-          # that used to fail with nothing left to download.
+          # The rc's prerelease asset, not the build run's artifact: artifacts expire at 90 days.
           gh release download "$RC" --pattern '*.zip' --dir staging
           zip=$(ls staging/*.zip)
           unzip -q "$zip" -d pkg
@@ -91,12 +75,8 @@ jobs:
             exit 1
           fi
 
-          # The two files in the package that name a version. Nothing the game loads is touched,
-          # which is the whole point of promoting rather than rebuilding.
-          #
-          # Not anchored to end-of-line: build_dist.ps1 writes INSTALL.txt from Windows, so every
-          # line ends CRLF and `...$VERSION$` would never match -- silently shipping a release
-          # that still calls itself an rc.
+          # The only two files that name a version; nothing the game loads is touched.
+          # Not anchored to end-of-line -- INSTALL.txt is written from Windows and ends CRLF.
           sed -i "1s|CyberpunkVRPort $RC|CyberpunkVRPort $VERSION|" pkg/INSTALL.txt
           if ! head -1 pkg/INSTALL.txt | grep -qF "CyberpunkVRPort $VERSION"; then
             echo "::error::INSTALL.txt still reads '$(head -1 pkg/INSTALL.txt)' -- refusing to publish a mislabelled package"
@@ -104,7 +84,7 @@ jobs:
           fi
           head -1 pkg/INSTALL.txt
 
-          # This one is what a Vortex user sees on the mod's row.
+          # MO2 reads this one; Vortex identifies mods by MD5 against Nexus instead.
           sed -i "s|<Version>$RC</Version>|<Version>$VERSION</Version>|" pkg/fomod/info.xml
           if ! grep -qF "<Version>$VERSION</Version>" pkg/fomod/info.xml; then
             echo "::error::fomod/info.xml still reads '$(grep -o '<Version>[^<]*</Version>' pkg/fomod/info.xml)' -- refusing to publish a mislabelled package"
@@ -121,5 +101,5 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # --clobber so re-running over a partial attempt replaces the asset instead of failing.
+          # --clobber so a re-run replaces the asset instead of failing.
           gh release upload "$TAG" "CyberpunkVRPort-$VERSION.zip" --clobber
