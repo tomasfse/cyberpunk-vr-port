@@ -29,9 +29,13 @@ To aim at a different release number, bump `VERSION` on `main`; that commit beco
 
 `.github/workflows/build.yml`, on `windows-latest`:
 
-1. `CyberpunkVR_Stereo.dll` — the root CMake project, `Release`.
-2. `CyberpunkVR_Hands.dll` — `src/red4ext_plugin`, its own project, `RelWithDebInfo`.
-3. `scripts/build_dist.ps1 -Zip` — assembles the game-root layout and zips it.
+1. `CyberpunkVR_Stereo.dll` — the root CMake project, `Release`. One plugin, one tree: the
+   separate `CyberpunkVR_Hands` project is gone and its natives are compiled into this DLL.
+2. `scripts/build_dist.ps1` — assembles the game-root layout.
+
+No `-Zip`. `upload-artifact` always zips what it is handed, so producing our own zip made a zip
+inside a zip that Vortex could not install; the package tree is uploaded and GitHub's wrapper is
+the zip.
 
 Two artifacts come out of each run: `CyberpunkVRPort-<version>` (the installable package) and
 `CyberpunkVRPort-<version>-symbols` (the PDBs). The PDBs ship nowhere, but a crash dump against
@@ -69,8 +73,8 @@ The package comes from the rc's own **prerelease asset**, not from its build run
 there is no 90-day limit on how old a candidate may be.
 
 It refuses, rather than guessing, if the tag is not a bare `X.Y.Z`, if no rc was built from that
-commit, or if the rc's asset does not look like a package. The restamp verifies itself in both
-`INSTALL.txt` and fails rather than publish a mislabelled package.
+commit, or if the rc's asset does not look like a package. The restamp checks its own result in
+`INSTALL.txt` and fails rather than publish a package that still calls itself a candidate.
 
 Two things to know:
 
