@@ -98,11 +98,18 @@ jobs:
           retention-days: 90
 
       # Never shipped, but a crash dump from this build is unreadable without it.
+      #
+      # `error`, not `warn`. This path is the one thing here coupled to CMake's
+      # RUNTIME_OUTPUT_DIRECTORY, and Release always emits a PDB -- /Zi and /DEBUG are
+      # unconditional for it in CMakeLists.txt. So nothing found means the path moved, and on
+      # `warn` that would be a line in a log nobody reads: every release afterwards ships without
+      # symbols and it surfaces months later, when a dump finally needs them. build_dist.ps1
+      # already fails loudly on the sibling DLL path; this now matches it.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}-symbols
           path: build/bin/red4ext/plugins/CyberpunkVR_Stereo/Release/*.pdb
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90
 
   # Every build of main is a release candidate. The prerelease is what makes it reachable: a run
