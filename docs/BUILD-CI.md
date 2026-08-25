@@ -93,5 +93,11 @@ Two things to know:
 
 - **Drafts do not trigger workflows.** GitHub fires `release` only on publish, so the asset appears
   a minute or two after the release goes public. Write the notes in the draft; publish when ready.
-- **Bump `VERSION` on `main`** when a release ships, so the next candidate series is numbered for
-  the next version rather than the one just published.
+- **`VERSION` bumps itself.** Publishing `0.1.5` pushes `0.1.6` to `main`, so the next candidate
+  series is numbered for the next version rather than the one just published — the chore that had
+  already been forgotten twice. It only fires when `VERSION` still names what was released: move
+  it by hand first (to `0.2.0`, say) and the bump sees that and leaves it alone.
+
+  That commit does not build. A push authenticated with `GITHUB_TOKEN` starts no workflow run, and
+  the message carries `[skip ci]` as well, so the behaviour survives someone swapping in a PAT or
+  a GitHub App token later.

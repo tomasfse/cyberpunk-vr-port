@@ -111,3 +111,65 @@ jobs:
           # --clobber so a re-run replaces the assets instead of failing.
           ls -la CyberpunkVRPort-"$VERSION"*.zip
           gh release upload "$TAG" CyberpunkVRPort-"$VERSION"*.zip --clobber
+
+  # Aim VERSION at the next release, so nobody has to remember. Left undone, main keeps raising
+  # candidates -- and public prereleases -- for a version already shipped, and nothing says so.
+  #
+  # Its own job: the release is already complete by now, and a bump that cannot land should show
+  # as its own red mark rather than making a finished release look failed.
+  bump:
+    needs: attach
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A release event checks out the tag, detached. The bump belongs on the branch.
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump VERSION past ${{ github.event.release.tag_name }}
+        env:
+          RELEASED: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          released=${RELEASED#v}
+          current=$(tr -d '[:space:]' < VERSION)
+
+          # Only when VERSION still names what was just released. Anything else means a human
+          # already moved it -- possibly to 0.2.0 rather than the next patch -- and guessing over
+          # that would be worse than doing nothing.
+          if [[ $current != "$released" ]]; then
+            echo "VERSION on main is $current, not the released $released -- already moved, leaving it alone"
+            exit 0
+          fi
+
+          IFS=. read -r major minor patch <<< "$current"
+          next="$major.$minor.$((patch + 1))"
+          echo "$next" > VERSION
+          echo "$current -> $next"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # [skip ci] is belt and braces. A push authenticated with GITHUB_TOKEN does not start a
+          # workflow run in the first place, but that is a property of the token, not of this
+          # file: swap in a PAT or a GitHub App later -- the usual reason people do -- and every
+          # release would suddenly build main, tag an rc and publish a prerelease for a commit
+          # that changes one line of text. The marker keeps that from depending on the token.
+          git commit -q -am "Aim VERSION at $next [skip ci]"
+
+          # main can move between the checkout and here. Rebase onto whatever landed and retry
+          # rather than failing a release over a race.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected, rebasing onto origin/main (attempt $attempt)"
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "::error::could not push the VERSION bump to main. The release itself is fine and its assets are attached -- set VERSION to $next by hand, or the next push to main will raise candidates for $released, which has already shipped."
+          exit 1
