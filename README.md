@@ -174,6 +174,14 @@ blit, sharpen) compile their HLSL at runtime through `d3dcompiler`.
    mode **borderless window**.
 4. Coming from an earlier build of this mod? Delete `bin\x64\dxgi.dll`.
 
+### Which file to download
+
+`CyberpunkVRPort-<version>.zip` — that one is the mod.
+
+A release also carries `CyberpunkVRPort-<version>-symbols.zip`. That is debug
+symbols, for reading a crash dump; it contains no mod and installs nothing. The
+two are almost the same size, so go by the name rather than by the size.
+
 ### With Vortex or MO2
 
 Install the release zip as-is. It does not check the required mods for you —
@@ -181,9 +189,8 @@ install those first.
 
 ### By hand
 
-Download the release archive and extract its contents into your **Cyberpunk 2077
-game root** (the folder that contains `bin\`, `r6\`, `red4ext\`). The files land
-as:
+Extract the contents of the release zip into your **Cyberpunk 2077 game root**
+(the folder that contains `bin\`, `r6\`, `red4ext\`). The files land as:
 
 ```
 red4ext\plugins\CyberpunkVR_Stereo\CyberpunkVR_Stereo.dll     # the VR plugin: OpenXR, stereo, overlay, VRIK
