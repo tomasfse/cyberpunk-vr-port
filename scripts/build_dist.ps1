@@ -43,6 +43,7 @@ function Copy-Tree($src, $dst) {
         foreach ($p in $SkipFiles) { if ($f.Name -like $p) { $skip = $true; break } }
         if ($skip) { continue }
         Copy-Item $f.FullName (Join-Path $dst $f.Name) -Force
+        $script:consumed.Add($f.FullName) | Out-Null
         $n++
     }
     foreach ($d in (Get-ChildItem -LiteralPath $src -Directory)) {
@@ -62,10 +63,15 @@ if (Test-Path $Out) {
 New-Item -ItemType Directory -Path $Out -Force | Out-Null
 
 $manifest = @()
+# Every source file this script reads, so the report at the bottom can say what it did NOT read.
+# Recorded here rather than derived from a list, so it cannot drift from what actually happened.
+$consumed = New-Object System.Collections.Generic.HashSet[string]
+
 function Add-File($src, $rel) {
     $dst = Join-Path $Out $rel
     New-Item -ItemType Directory -Path (Split-Path $dst -Parent) -Force | Out-Null
     Copy-Item -LiteralPath $src -Destination $dst -Force
+    $script:consumed.Add((Resolve-Path -LiteralPath $src).Path) | Out-Null
     $script:manifest += [pscustomobject]@{ Path = $rel; Bytes = (Get-Item -LiteralPath $dst).Length }
 }
 
@@ -164,9 +170,15 @@ if (Test-Path $hud) {
 # Same folder and the same input_loader dependency as HUDitor.xml above. A SEPARATE key rather than
 # F11, because sharing it would open HUDitor's editor on the same press -- and HUDitor's editor has no
 # idea the scanner exists, so the two would fight over one key for different widgets.
+#
+# ENUMERATED: everything in mods\config\input\ goes to exactly one place, r6\input\, so the
+# folder can carry the rule and a second binding ships by existing. It named one file before,
+# which would have dropped the next one in silence.
 $inputDir = Join-Path $RepoRoot "mods\config\input"
 if (Test-Path $inputDir) {
-    Add-File (Need (Join-Path $inputDir "CyberpunkVRPort_ScannerHud.xml") "CyberpunkVRPort_ScannerHud.xml") "r6\input\CyberpunkVRPort_ScannerHud.xml"
+    foreach ($x in (Get-ChildItem $inputDir -File -Filter "*.xml" | Sort-Object Name)) {
+        Add-File $x.FullName "r6\input\$($x.Name)"
+    }
 }
 
 # ---- the OpenXR probe is NOT packaged ---------------------------------------------------------
@@ -565,6 +577,36 @@ foreach ($m in $manifest) {
 $all = Get-ChildItem $Out -Recurse -File
 Write-Host ""
 Write-Host ("  {0} files, {1:N0} bytes total" -f $all.Count, ($all | Measure-Object Length -Sum).Sum)
+
+# ---- what under mods\ did NOT get packaged ----------------------------------------------------
+# Diagnostic. It never fails the build and never blocks a release -- adding something must not
+# break anyone's day.
+#
+# Every list above is enumerated, so a new CET mod, redscript folder, tweak, grip pose, input
+# binding or archive ships by EXISTING. What has no rule is a file whose DESTINATION is new:
+# mods\config\ alone fans out to five different places, and nothing can guess a sixth from a
+# path. Such a file used to disappear without a word -- that is how the grip poses,
+# vrport_mag.archive and mods\tweaks\vrport\ each went missing for a release or more. This
+# prints them instead, so the omission is visible the moment it happens.
+$ignored = @("mods\archive\source", "mods\archive\build")   # WolvenKit authoring trees, not output
+foreach ($m in $SkipMods) { $ignored += "mods\cet\$m"; $ignored += "mods\redscript\$m" }
+
+$unpackaged = @()
+foreach ($f in (Get-ChildItem (Join-Path $RepoRoot "mods") -Recurse -File)) {
+    if ($consumed.Contains($f.FullName)) { continue }
+    $rel  = $f.FullName.Substring($RepoRoot.Length + 1)
+    $skip = $false
+    foreach ($i in $ignored)   { if ($rel.StartsWith($i, [System.StringComparison]::OrdinalIgnoreCase)) { $skip = $true; break } }
+    if (-not $skip) { foreach ($p in $SkipFiles) { if ($f.Name -like $p) { $skip = $true; break } } }
+    if (-not $skip) { $unpackaged += $rel }
+}
+if ($unpackaged) {
+    Write-Host ""
+    Write-Host ("  [i] {0} file(s) under mods\ that nothing packaged:" -f $unpackaged.Count)
+    foreach ($u in ($unpackaged | Sort-Object)) { Write-Host "        $u" }
+    Write-Host "      Fine if that is deliberate. If one of them should ship, it needs a destination"
+    Write-Host "      in this script -- its folder has no rule that would carry it."
+}
 
 if ($Zip) {
     # Not $zip: PowerShell variable names are case-insensitive, so that would be the -Zip switch.
