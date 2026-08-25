@@ -39,8 +39,8 @@ jobs:
 
           sha=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}")
 
-          # The rc on the SAME commit -- exact, nothing to type. Two can only exist if main was
-          # force-pushed; take the newest and say so rather than pick silently.
+          # The rc on the SAME commit. Two can only exist if main was force-pushed; take the
+          # newest and say so.
           mapfile -t rcs < <(git tag --points-at "$sha" --sort=-creatordate | grep -E -- '-rc\.' || true)
           if [[ ${#rcs[@]} -eq 0 ]]; then
             echo "::error::no release candidate was built from $sha -- only commits on main get one, and the package has to come from a build that already happened"
@@ -64,11 +64,8 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # The rc's prerelease asset, not the build run's artifact: artifacts expire at 90 days.
-          #
-          # Named exactly, NOT '*.zip'. The rc carries a second asset now -- its symbols -- and a
-          # glob would match both, leaving `ls` with two paths and unzip with a broken argument.
-          # The name is derivable rather than guessed: an rc's version IS its tag.
+          # The rc's prerelease asset, not the run artifact: artifacts expire at 90 days.
+          # Named exactly, NOT '*.zip' -- that would also match the symbols asset.
           gh release download "$RC" --pattern "CyberpunkVRPort-$RC.zip" --dir staging
           unzip -q "staging/CyberpunkVRPort-$RC.zip" -d pkg
 
@@ -89,10 +86,8 @@ jobs:
 
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
 
-          # Symbols ride along, from the same rc and unmodified -- only the filename takes the
-          # release version. A released build is the one most people run, so most crash dumps will
-          # come from it, and the run artifact that also held these PDBs expires at 90 days.
-          # Absent on candidates built before symbols were attached, so this must not be fatal.
+          # From the same rc, unmodified; only the filename takes the release version. Optional,
+          # so a candidate built before symbols existed still releases.
           if gh release download "$RC" --pattern "CyberpunkVRPort-$RC-symbols.zip" --dir sym 2>/dev/null; then
             mv "sym/CyberpunkVRPort-$RC-symbols.zip" "CyberpunkVRPort-$VERSION-symbols.zip"
           else
@@ -106,17 +101,13 @@ jobs:
           VERSION: ${{ steps.rc.outputs.version }}
         run: |
           set -euo pipefail
-          # The package, and the symbols beside it when the rc carried them. Only the two files
-          # built above match here -- staging\, sym\ and pkg\ are directories.
+          # Only the two files built above match: staging\, sym\ and pkg\ are directories.
           # --clobber so a re-run replaces the assets instead of failing.
           ls -la CyberpunkVRPort-"$VERSION"*.zip
           gh release upload "$TAG" CyberpunkVRPort-"$VERSION"*.zip --clobber
 
-  # Aim VERSION at the next release, so nobody has to remember. Left undone, main keeps raising
-  # candidates -- and public prereleases -- for a version already shipped, and nothing says so.
-  #
-  # Its own job: the release is already complete by now, and a bump that cannot land should show
-  # as its own red mark rather than making a finished release look failed.
+  # Aim VERSION at the next release, so nobody has to remember. Its own job: by now the release
+  # is complete, and a bump that cannot land should not make it look failed.
   bump:
     needs: attach
     runs-on: ubuntu-latest
@@ -138,9 +129,7 @@ jobs:
           released=${RELEASED#v}
           current=$(tr -d '[:space:]' < VERSION)
 
-          # Only when VERSION still names what was just released. Anything else means a human
-          # already moved it -- possibly to 0.2.0 rather than the next patch -- and guessing over
-          # that would be worse than doing nothing.
+          # Only when VERSION still names what shipped; anything else is a human's choice.
           if [[ $current != "$released" ]]; then
             echo "VERSION on main is $current, not the released $released -- already moved, leaving it alone"
             exit 0
@@ -153,15 +142,11 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          # [skip ci] is belt and braces. A push authenticated with GITHUB_TOKEN does not start a
-          # workflow run in the first place, but that is a property of the token, not of this
-          # file: swap in a PAT or a GitHub App later -- the usual reason people do -- and every
-          # release would suddenly build main, tag an rc and publish a prerelease for a commit
-          # that changes one line of text. The marker keeps that from depending on the token.
+          # A GITHUB_TOKEN push starts no workflow run, but that is the token's doing, not this
+          # file's; [skip ci] keeps it true if a PAT or GitHub App ever replaces it.
           git commit -q -am "Aim VERSION at $next [skip ci]"
 
-          # main can move between the checkout and here. Rebase onto whatever landed and retry
-          # rather than failing a release over a race.
+          # main can move between checkout and here; rebase rather than fail a release on a race.
           for attempt in 1 2 3; do
             if git push origin main; then
               echo "pushed on attempt $attempt"

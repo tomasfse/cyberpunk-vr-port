@@ -59,8 +59,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          # Build the commit the version names, not the PR's merge commit -- the sha in the
-          # package filename and the one in INSTALL.txt have to agree.
+          # The commit the version names, not the PR's merge commit: the sha in the filename and
+          # the one in INSTALL.txt have to agree.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       # OpenXR-SDK and imgui come down through FetchContent on every configure otherwise.
@@ -85,8 +85,8 @@ jobs:
       - name: Build stereo plugin
         run: cmake --build build --config Release --parallel
 
-      # No -Zip, and upload the TREE: upload-artifact always zips what it is handed, so handing
-      # it our own zip produced a zip inside a zip that Vortex could not install.
+      # No -Zip, and upload the TREE: upload-artifact zips what it is handed, and a zip inside a
+      # zip is not installable.
       - name: Package
         run: pwsh scripts/build_dist.ps1 -Version "${{ needs.version.outputs.version }}"
 
@@ -97,14 +97,8 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      # Never shipped, but a crash dump from this build is unreadable without it.
-      #
-      # `error`, not `warn`. This path is the one thing here coupled to CMake's
-      # RUNTIME_OUTPUT_DIRECTORY, and Release always emits a PDB -- /Zi and /DEBUG are
-      # unconditional for it in CMakeLists.txt. So nothing found means the path moved, and on
-      # `warn` that would be a line in a log nobody reads: every release afterwards ships without
-      # symbols and it surfaces months later, when a dump finally needs them. build_dist.ps1
-      # already fails loudly on the sibling DLL path; this now matches it.
+      # Never shipped, but a crash dump is unreadable without it. `error`, not `warn`: Release
+      # always emits a PDB, so finding none means this path stopped matching CMake's output.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ needs.version.outputs.artifact }}-symbols
@@ -157,14 +151,8 @@ jobs:
           (cd pkg && zip -qr "../CyberpunkVRPort-$VERSION.zip" .)
           assets=("CyberpunkVRPort-$VERSION.zip")
 
-          # Symbols as their OWN asset, never inside the player's package. The PDB is the only way
-          # to read a crash dump from this build, and dumps arrive months later -- by which time
-          # the run artifact holding it has been deleted (90 days) and needed a GitHub account
-          # anyway. Nothing to leak: a PDB carries source paths and function names, and the source
-          # is this public repo.
-          #
-          # Its artifact is uploaded with if-no-files-found: warn, so it can legitimately be
-          # absent. Publish the package alone in that case rather than failing the whole rc.
+          # Their OWN asset, never inside the player's package. Optional here so a candidate
+          # built before symbols existed still publishes.
           if gh run download "$GITHUB_RUN_ID" --name "$ARTIFACT-symbols" --dir sym 2>/dev/null; then
             (cd sym && zip -qr "../CyberpunkVRPort-$VERSION-symbols.zip" .)
             assets+=("CyberpunkVRPort-$VERSION-symbols.zip")

@@ -63,8 +63,7 @@ if (Test-Path $Out) {
 New-Item -ItemType Directory -Path $Out -Force | Out-Null
 
 $manifest = @()
-# Every source file this script reads, so the report at the bottom can say what it did NOT read.
-# Recorded here rather than derived from a list, so it cannot drift from what actually happened.
+# Every source file read, so the report at the bottom can say what was not.
 $consumed = New-Object System.Collections.Generic.HashSet[string]
 
 function Add-File($src, $rel) {
@@ -120,23 +119,15 @@ foreach ($d in (Get-ChildItem (Join-Path $RepoRoot "mods\redscript") -Directory)
     $n = Copy-Tree $d.FullName (Join-Path $Out "r6\scripts\$($d.Name)")
     $manifest += [pscustomobject]@{ Path = "r6\scripts\$($d.Name)\  ($n files)"; Bytes = 0 }
 }
-# ENUMERATED, like the CET and redscript folders above it. This named vrcigarette alone and
-# guarded it with Test-Path, so a second tweaks folder was skipped in silence -- which is exactly
-# what 0.1.5 did: it added mods\tweaks\vrport\ for the wrist HUD, and no package would have
-# carried its TweakXL yaml. A tweak that never loads has no error to give; the feature is just
-# quietly missing.
+# ENUMERATED: a tweak that never loads raises no error, so a named list loses features quietly.
 foreach ($d in (Get-ChildItem (Join-Path $RepoRoot "mods\tweaks") -Directory | Sort-Object Name)) {
     $n = Copy-Tree $d.FullName (Join-Path $Out "r6\tweaks\$($d.Name)")
     $manifest += [pscustomobject]@{ Path = "r6\tweaks\$($d.Name)\  ($n files)"; Bytes = 0 }
 }
 
 # ---- packed archives ---------------------------------------------------------------------------
-# ENUMERATED, for the same reason the grip poses are. The list used to be hardcoded, and
-# vrport_mag.archive -- packed for the physical reload in 0.1.2 -- was never added to it, so no CI
-# package has ever carried it. An archive ships by existing in archive\pc\mod\; nothing references
-# it by name, so a missing one is silent, and the mod is simply short an asset.
-#
-# Not recursive: mods\archive\source\ is the WolvenKit authoring tree (raw .app.json), not output.
+# ENUMERATED: an archive loads by existing in archive\pc\mod\ and nothing names one, so a
+# hardcoded list drops assets in silence. Not recursive -- source\ and build\ are authoring trees.
 $archives = Get-ChildItem (Join-Path $RepoRoot "mods\archive") -File -Filter "*.archive*" |
             Sort-Object Name
 if (-not $archives) { Write-Host "[!] no archives in mods\archive -- run sync_assets.ps1 first" }
@@ -171,9 +162,7 @@ if (Test-Path $hud) {
 # F11, because sharing it would open HUDitor's editor on the same press -- and HUDitor's editor has no
 # idea the scanner exists, so the two would fight over one key for different widgets.
 #
-# ENUMERATED: everything in mods\config\input\ goes to exactly one place, r6\input\, so the
-# folder can carry the rule and a second binding ships by existing. It named one file before,
-# which would have dropped the next one in silence.
+# ENUMERATED: everything here goes to r6\input\, so the folder carries the rule.
 $inputDir = Join-Path $RepoRoot "mods\config\input"
 if (Test-Path $inputDir) {
     foreach ($x in (Get-ChildItem $inputDir -File -Filter "*.xml" | Sort-Object Name)) {
@@ -579,15 +568,8 @@ Write-Host ""
 Write-Host ("  {0} files, {1:N0} bytes total" -f $all.Count, ($all | Measure-Object Length -Sum).Sum)
 
 # ---- what under mods\ did NOT get packaged ----------------------------------------------------
-# Diagnostic. It never fails the build and never blocks a release -- adding something must not
-# break anyone's day.
-#
-# Every list above is enumerated, so a new CET mod, redscript folder, tweak, grip pose, input
-# binding or archive ships by EXISTING. What has no rule is a file whose DESTINATION is new:
-# mods\config\ alone fans out to five different places, and nothing can guess a sixth from a
-# path. Such a file used to disappear without a word -- that is how the grip poses,
-# vrport_mag.archive and mods\tweaks\vrport\ each went missing for a release or more. This
-# prints them instead, so the omission is visible the moment it happens.
+# Diagnostic, never fatal. Everything above ships by EXISTING; what has no rule is a file whose
+# DESTINATION is new (mods\config\ alone fans out to five places). Those used to vanish silently.
 $ignored = @("mods\archive\source", "mods\archive\build")   # WolvenKit authoring trees, not output
 foreach ($m in $SkipMods) { $ignored += "mods\cet\$m"; $ignored += "mods\redscript\$m" }
 

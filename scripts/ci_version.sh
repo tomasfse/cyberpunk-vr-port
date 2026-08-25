@@ -1,24 +1,12 @@
 #!/usr/bin/env bash
 #
-# The single place that decides what version a build carries. Both workflows call it and nothing
-# else computes a version -- a number invented inside a YAML step is a number that drifts.
+# The only thing that computes a version. X.Y.Z comes from VERSION; tags are bare, no `v`.
 #
-#   feature branch / PR      X.Y.Z-dev.<short-sha>    0.1.2-dev.a1b2c3d
-#   main                     X.Y.Z-rc.N.<short-sha>   0.1.2-rc.4.a1b2c3d
-#   tag <semver>             <semver>                 0.1.2
+#   feature branch / PR   X.Y.Z-dev.<sha>     0.1.6-dev.a1b2c3d
+#   main                  X.Y.Z-rc.N.<sha>    0.1.6-rc.4.a1b2c3d   N = commits since VERSION changed
+#   tag <semver>          <semver>            0.1.6
 #
-# TAGS CARRY NO `v` PREFIX -- the historical tags are bare, and one namespace beats two.
-#
-# X.Y.Z is read from the VERSION file at the repo root. Bump it when the NEXT release should carry
-# a different number; N restarts at 1 with that bump, because it counts the commits made since
-# VERSION last changed. That also makes the ordering come out right on its own: "dev" sorts before
-# "rc" as a SemVer pre-release identifier, and both sort before the bare X.Y.Z of the release.
-#
-# Usage:
-#   scripts/ci_version.sh                       # infer from the checkout / GitHub env
-#   scripts/ci_version.sh <ref-name> <ref-type> <sha>
-#
-# Writes `key=value` lines on stdout, ready to be appended to $GITHUB_OUTPUT.
+#   scripts/ci_version.sh [<ref-name> <ref-type> <sha>]   -> key=value lines for $GITHUB_OUTPUT
 
 set -euo pipefail
 
@@ -42,15 +30,14 @@ if [[ ! $base =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 short=$(git rev-parse --short=7 "$sha")
-# A pre-release identifier made only of digits may not carry a leading zero, and roughly one short
-# sha in 270 is exactly that. Prefixing it the way git-describe does keeps the version valid.
+# An all-digit pre-release identifier may not have a leading zero; ~1 short sha in 270 does.
 if [[ $short =~ ^[0-9]+$ ]]; then
     short="g$short"
 fi
 
 case "$ref_type" in
 tag)
-    # A leading `v` is tolerated on the way in, but never emitted.
+    # `v` tolerated on the way in, never emitted.
     tag=${ref_name#v}
     if [[ ! $tag =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
         echo "tag '$ref_name' is not a semver tag" >&2
@@ -61,16 +48,14 @@ tag)
     ;;
 *)
     if [[ $ref_name == "$default_branch" ]]; then
-        # Commits on main since VERSION last changed. The commit that does the bump is itself
-        # rc.1, so a fresh X.Y.Z never starts at rc.0 or skips a number.
+        # The bump commit is itself rc.1, so a fresh X.Y.Z never starts at rc.0.
         bump=$(git log -1 --format=%H -- VERSION || true)
         if [[ -n $bump ]]; then
             n=$(git rev-list --count "$bump..$sha")
         else
             n=$(git rev-list --count "$sha")
         fi
-        # The sha rides along because rc.N is only unique while main's history is never
-        # rewritten: force-push main and the same N is re-derived for a different commit.
+        # The sha rides along: force-push main and the same N is re-derived for another commit.
         version="$base-rc.$((n + 1)).$short"
         channel=rc
     else
