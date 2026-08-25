@@ -114,10 +114,14 @@ foreach ($d in (Get-ChildItem (Join-Path $RepoRoot "mods\redscript") -Directory)
     $n = Copy-Tree $d.FullName (Join-Path $Out "r6\scripts\$($d.Name)")
     $manifest += [pscustomobject]@{ Path = "r6\scripts\$($d.Name)\  ($n files)"; Bytes = 0 }
 }
-$tw = Join-Path $RepoRoot "mods\tweaks\vrcigarette"
-if (Test-Path $tw) {
-    $n = Copy-Tree $tw (Join-Path $Out "r6\tweaks\vrcigarette")
-    $manifest += [pscustomobject]@{ Path = "r6\tweaks\vrcigarette\  ($n files)"; Bytes = 0 }
+# ENUMERATED, like the CET and redscript folders above it. This named vrcigarette alone and
+# guarded it with Test-Path, so a second tweaks folder was skipped in silence -- which is exactly
+# what 0.1.5 did: it added mods\tweaks\vrport\ for the wrist HUD, and no package would have
+# carried its TweakXL yaml. A tweak that never loads has no error to give; the feature is just
+# quietly missing.
+foreach ($d in (Get-ChildItem (Join-Path $RepoRoot "mods\tweaks") -Directory | Sort-Object Name)) {
+    $n = Copy-Tree $d.FullName (Join-Path $Out "r6\tweaks\$($d.Name)")
+    $manifest += [pscustomobject]@{ Path = "r6\tweaks\$($d.Name)\  ($n files)"; Bytes = 0 }
 }
 
 # ---- packed archives ---------------------------------------------------------------------------
@@ -260,7 +264,7 @@ WHAT LANDS WHERE
     bin\x64\CyberpunkVR_*Grip*.ini        captured hand poses for holding a cigarette and lighter
     bin\x64\plugins\cyber_engine_tweaks\mods\CyberpunkVRPort_*\
     r6\scripts\CyberpunkVRPort_*\
-    r6\tweaks\vrcigarette\
+    r6\tweaks\vrport\, r6\tweaks\vrcigarette\
     archive\pc\mod\                       packed assets + the ArchiveXL manifest
     r6\input\HUDitor.xml               HUDitor's editor moved to F11 (needs input_loader)
     bin\x64\plugins\...\mods\HUDitor\persistency.json   the VR HUD layout -- REPLACES yours
