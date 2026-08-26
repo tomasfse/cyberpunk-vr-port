@@ -13,9 +13,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: build-${{ github.ref }}
-  # Not on main: a cancelled build leaves a commit with no rc, and the number is never reissued.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # A running build always finishes; only a queued run that never started is replaced by a newer
+  # push. On main every commit gets its own group, so every commit builds and gets its rc.
+  group: build-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
