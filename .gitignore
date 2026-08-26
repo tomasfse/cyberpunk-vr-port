@@ -88,8 +88,7 @@ mods/cet/**/vrik_recenter.ini
 # Claude Rewind Tool
 .claude-rewind/
 
-# Claude Code: agent guidance and per-machine settings. Local only -- this is a fork, and none of
-# it belongs in a PR to upstream.
+# Per-machine AI-assistant guidance and settings; local only, never shipped or shared.
 CLAUDE.md
 .claude/
 
